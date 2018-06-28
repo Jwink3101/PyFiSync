@@ -2,7 +2,7 @@
 
 Python based intelligent file sync with automatic backups and file move/delete tracking.
 
-[TOC]
+Version: 20180628
 
 ## Features
 
@@ -11,10 +11,11 @@ Python based intelligent file sync with automatic backups and file move/delete t
 * Works out of the box with Python (tested on 2.7 and 3.6)
 * Works over SSH for secure and easy connections
 * Uses rsync for actual file transfers so it is bandwidth saving
+* Extensively tested for a **huge** variety of edge-cases
 
 ## Install
 
-This is *no dependancies!*. Everything is included in the package (though `ldtable` is also separately developed [here](https://github.com/Jwink3101/ldtable)
+This is *no dependancies!*. Everything is included in the package (though `ldtable` is also separately developed [here](https://github.com/Jwink3101/ldtable))
 
 To install:
 
