@@ -15,6 +15,8 @@ import zlib
 import base64
 from io import open
 import itertools
+import argparse
+import copy
 
 if sys.version_info >= (3,):
     unicode = str
@@ -247,4 +249,32 @@ def to_unicode(txt,verbose=False):
     
     return txt
 
-
+class RawSortingHelpFormatter(argparse.RawDescriptionHelpFormatter):
+    """
+    argparse help formatter that uses RawDescriptionHelpFormatter but
+    alphebatizes by the long-form action and lower case
+    
+    Based on https://stackoverflow.com/a/12269143/3633154
+    WARNING: Uses non-documented behavior but it *should* be fine
+    """
+    # override parent
+    def add_arguments(self, actions):
+        actions = sorted(actions, key=self._sortkey)
+        super(RawSortingHelpFormatter, self).add_arguments(actions)
+    
+    # new
+    def _sortkey(self,action):
+        """
+        Sorter for optional strings. Sort by lower case of long 
+        argument otherwise short
+        """
+        options = copy.copy(action.option_strings)
+        options.sort(key=self._count_leading_dash)
+        return tuple(opt.lower() for opt in options)
+   
+    def _count_leading_dash(self,item):
+        count = 0
+        while item.startswith('-'):
+            count += -1
+            item = item[1:]
+        return count

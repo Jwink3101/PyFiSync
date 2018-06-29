@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import division, print_function, unicode_literals, absolute_import
 
+import PyFiSync
+
 from setuptools import setup
 
 setup(
@@ -11,10 +13,10 @@ setup(
     entry_points = {
         'console_scripts': ['PyFiSync=PyFiSync.main:cli'],
     },
-    version='20180628',
+    version=PyFiSync.__version__,
     description='Python based intelligent file sync with automatic backups and file move/delete tracking.',
     url='https://github.com/Jwink3101/PyFiSync',
-    author='Justin Winokur',
+    author=PyFiSync.__author__,
     author_email='Jwink3101@@users.noreply.github.com',
     license='MIT',
 )

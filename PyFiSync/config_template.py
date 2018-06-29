@@ -22,16 +22,12 @@ ssh_port = 22
 # This works in practice but has not been as thouroughly tested.
 persistant = True
 
-# Specify the path to the REMOTE PyFiSync file
-# If empty, will assume it is installed and not specify a path
-PyFiSync_path = ''
-
-# Specify the remote python path 
-# WARNING: PyPy does not support birthtimes and will set them to zero. Do not
-#          use PyPy if using birthtime but otherwise, it is faster!
-remote_program = 'python'
-# remote_program = 'python3'
-# remote_program='/path/to/python'
+# These are useful if you're not installing the program on both machines
+# and just want to point to the python file itself
+# Leave empty if installed otherwise specify the path to the REMOTE PyFiSync
+# and remote program 
+PyFiSync_path = ''      # /path/to/PyFiSync.py if not installed
+remote_program = ''     # python, python3, etc
 
 # File Settings:
 # move_attributes specify which attributes to determine a move or previous file.

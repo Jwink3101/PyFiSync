@@ -3,6 +3,10 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
+__version__ = '20180629.0'
+__author__ = 'Justin Winokur'
+__license__ = 'MIT'
+
 import os
 import sys
 import fnmatch
@@ -10,7 +14,8 @@ import subprocess
 import time
 import shutil
 import datetime
-import getopt
+import argparse
+import itertools
 import re
 import copy
 import json
@@ -866,44 +871,119 @@ Modes and Options
 
     help -- Print this help
 """
+
+desc = """\
+Description
+"""
+epi = """\
+epilog
+"""
+
 def cli(argv=None):
     if argv is None:
         argv = sys.argv[1:]
     global log,config,remote_interface
-   
     
-    # Default to a sync mode if *nothing* else is present.
+    # Set up main parser and subparsers. Then, (hackily) generate a list
+    # of modes. If the first argument is not a mode, then insert "sync". The
+    # edge case of this is if the directory is named one of the modes. Oh well!
+    
+    parser_main = argparse.ArgumentParser(\
+        description=desc,
+        epilog=epi,
+        formatter_class=utils.RawSortingHelpFormatter)
+        
+    parser_main.add_argument('-v', '--version', action='version', 
+        version='%(prog)s-' + __version__,help='Display version and exit')
+    
+    # Parent parser for ALL modes/subparsers
+    parser_all_opts = argparse.ArgumentParser(add_help=False) # Notice this is NOT a subparser of parser_main
+    parser_all_opts.add_argument('path',default='.',nargs='?',
+        help="['%(default)s'] path to the PyFiSync directory")
+    
+    subparsers = parser_main.add_subparsers(dest='mode',title='modes',help="[sync]. Enter `{mode} -h` for individual help")
+    
+    ## Sync, Push,Pull
+    # Options for all
+    parser_syncops = argparse.ArgumentParser(add_help=False) # Notice this is NOT a subparser of parser_main
+    
+    parser_syncops.add_argument('-s','--silent',
+        action='store_true',help='Do not print the log to screen')
+    parser_syncops.add_argument('--no-backup',
+        action='store_true',
+        help='Override config and do not back up files')
+    
+    # options for push and pull
+    parser_pushpull = argparse.ArgumentParser(add_help=False) # Notice this is NOT a subparser of parser_main
+    parser_pushpull.add_argument('--all',
+        action='store_true',
+        help=('Push/Pull every file even if unmodified. Note, will cause '
+              'backups of every file. Consider --no-backup. '
+              'This is useful if reset files.'))
+    
+    # Make the parser with the right combination of options
+    parser_sync = subparsers.add_parser('sync',
+        help='Synchronize to the server',
+        parents=[parser_syncops,parser_all_opts],
+        formatter_class=utils.RawSortingHelpFormatter)
+    
+    parser_push = subparsers.add_parser('push',
+        help='Push to the server',
+        parents=[parser_pushpull,parser_syncops,parser_all_opts],
+        formatter_class=utils.RawSortingHelpFormatter)
+    
+    parser_pull = subparsers.add_parser('pull',
+        help='Pull from the server',
+        parents=[parser_syncops,parser_pushpull,parser_all_opts],
+        formatter_class=utils.RawSortingHelpFormatter)
+    
+    ## Init
+    parser_init = subparsers.add_parser('init',
+        help='Initialize in the specified directory',
+        parents=[parser_all_opts],
+        formatter_class=utils.RawSortingHelpFormatter)
+    
+    ## Reset
+    parser_reset = subparsers.add_parser('reset',
+        help=('Completely reset file tracking. No changes pre-reset '
+              'will be propgrated until you do a `push/pull --all`. '
+              'Existing database files will be backed up'),
+        parents=[parser_all_opts],
+        formatter_class=utils.RawSortingHelpFormatter)
+    
+    parser_reset.add_argument('--force',action='store_true',help='Do not prompt for confirmation')
+    
+    # get a list of the modes. Inspired by https://stackoverflow.com/a/20096044/3633154
+    modes = []
+    for _s in parser_main._actions:
+        if not isinstance(_s, argparse._SubParsersAction):
+            continue
+        for choice in _s.choices.items():
+            modes.append(choice[0])
+    
+    main_actions = list(itertools.chain.from_iterable(a.option_strings for a in parser_main._actions))
+    
     if len(argv) == 0:
-        mode = 'sync'
-        argv = ['.']
-    else:
-        mode = argv[0]
-        argv = argv[1:]
+        argv = ['sync']
+    if argv[0].lower() == 'help': # add help mode
+        argv[0] = '--help'
+    if argv[0] not in modes + main_actions + ['_api']:
+        argv.insert(0,'sync')
+    
+    if argv[0] == '_api':
+        remote_interfaces.ssh_rsync.cli(argv[1:])
+        sys.exit()
+    
+    args = parser_main.parse_args(argv)
 
     #############
 
-    if mode == 'init':
-        if len(argv) == 0:
-            path = '.'
-        else:
-            path = argv[0]
+    if args.mode == 'init':
+        log = utils.logger(path=args.path,silent=False)
+        init(args.path)
 
-        log = utils.logger(path=path,silent=False)
-        init(path)
-
-    elif mode in ['push','pull','sync']:
-        try:
-            opts, args = getopt.getopt(argv, "hs",['all','help','no-backup','silent'])
-        except getopt.GetoptError as err:
-            print(str(err)) #print error
-            sys.exit(2)
-
-        if len(args)>0:
-            path = args[0]
-        else:
-            path = '.'
-        
-        path = search_up_PyFiSync(path)
+    elif args.mode in ['push','pull','sync']:
+        path = search_up_PyFiSync(args.path)
         
         config = utils.configparser(sync_dir=path)
         log = utils.logger(path=path,silent=False)
@@ -912,36 +992,24 @@ def cli(argv=None):
             remote_interface = remote_interfaces.ssh_rsync(config,log)
         else:
             remote_interface = None
-            
-        for opt,val in opts:
-            if opt in ['--all'] and not mode == 'sync':
-                mode += '_all'
-            if opt in ['-h','--help']:
-                print(usage)
-                sys.exit()
-            if opt in ['--no-backup']:
-                config.backup = False
-            if opt in ['-s','--silent']:
-                log.silent = True
-        main(mode)
+        
+        if args.mode != 'sync' and args.all:
+            args.mode += '_all'
+        
+        if args.no_backup:
+            config.backup = False
+        
+        if args.silent:
+            log.silent = True
+        
+        main(args.mode)
         
         if remote_interface is not None and hasattr(remote_interface,'close')\
                 and hasattr(remote_interface.close,'__call__'):
             remote_interface.close()
 
-    elif mode == 'reset':
-        try:
-            opts, args = getopt.getopt(argv, "h",['force','help'])
-        except getopt.GetoptError as err:
-            print(str(err)) #print error
-            sys.exit(2)
-
-        if len(args)>0:
-            path = args[0]
-        else:
-            path = '.'
-        
-        path = search_up_PyFiSync(path)
+    elif args.mode == 'reset':
+        path = search_up_PyFiSync(args.path)
         
         config = utils.configparser(sync_dir=path)
         log = utils.logger(path=path,silent=False)
@@ -951,32 +1019,18 @@ def cli(argv=None):
         else:
             remote_interface = None
         
-        force = False
-
-        for opt,val in opts:
-            if opt in ['-h','--help']:
-                print(usage)
-                sys.exit()
-            if opt in ['--force']:
-                force = True
-
-        if not force:
+        if not args.force:
             print('Are you sure you want to reset? (Y/[N]): ')
             if not raw_input().lower().startswith('y'):
                sys.exit()
+        
         reset_tracking(set_time=True,empty='reset')
         
         if remote_interface is not None and hasattr(remote_interface,'close')\
                 and hasattr(remote_interface.close,'__call__'):
             remote_interface.close()
         
-    elif mode == '_api':
-        remote_interfaces.ssh_rsync.cli(argv)
-    else:
-        # If we got here and the mode is not specified, we can assume it is 
-        # sync. Of course, this may be fooled if there is a directory
-        # with a valid mode name, but that is an edge case and not a problem
-        cli(['sync',mode] + argv)
+
 
 if __name__ == '__main__':
     argv = sys.argv[1:] # Argument besides function name

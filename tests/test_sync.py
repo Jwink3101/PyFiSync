@@ -1629,7 +1629,7 @@ def test_use_hashdb(remote): # This used to be test 01
 
 
 if __name__=='__main__':    
-    # Enter some in manually
+    test_nothing(True)
     sys.exit()
 
 

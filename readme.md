@@ -25,6 +25,8 @@ Or download the zip file and run
 
     $ python setup.py install
 
+Note: On the remote machine, the path to PyFiSync must be found via SSH. If, for example, your python is from (Ana/Mini)conda, it places the past into the `.bash_profile`. Move that to `.bashrc` so that PyFiSync can be found. Alternatively, specify `PyFiSync_path` and `remote_program` in the config
+
 ## Set Up
 
 Set up is very easy. I will assume that `PyFiSync` is in the path or an alias has been set up:

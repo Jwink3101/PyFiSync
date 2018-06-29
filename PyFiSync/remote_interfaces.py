@@ -12,7 +12,6 @@ required ones will raise a NotImplementedError
 """
 from __future__ import division, print_function, unicode_literals
 
-import getopt
 import subprocess
 import re
 import sys
@@ -128,10 +127,10 @@ class ssh_rsync(remote_interface_base):
 
         # construct the call cmd
         if len(config.PyFiSync_path) == 0:
-            cmd += 'PyFiSync.py _api file_list'
+            cmd += 'PyFiSync _api file_list"'
         else:
             cmd += config.remote_program + ' '
-            if config.PyFiSync_path.endswith('PyFiSync.py'):
+            if any(config.PyFiSync_path.endswith('PyFiSync'+ext) for ext in ['','.py']):
                 cmd += config.PyFiSync_path + ' _api file_list"'
             else:
                 cmd += os.path.join(config.PyFiSync_path,'PyFiSync.py _api file_list"')
@@ -438,6 +437,9 @@ class ssh_rsync(remote_interface_base):
             stdout.write(sentinel + out) # write the bytes
             
         elif mode == 'apply_queue':
+            import getopt  # Even though it is "old school" use getopt here 
+                           # since it is easier and this interface is never 
+                           # exposed to the user
             # For python3 to read bytes
             stdin = sys.stdin
             if hasattr(stdin,'buffer'):
