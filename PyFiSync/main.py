@@ -873,11 +873,9 @@ Modes and Options
 """
 
 desc = """\
-Description
+Python (+ rsync) based intelligent file sync with automatic backups and file move/delete tracking.
 """
-epi = """\
-epilog
-"""
+epi = ""
 
 def cli(argv=None):
     if argv is None:
