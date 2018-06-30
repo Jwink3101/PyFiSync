@@ -2,7 +2,7 @@
 
 Python (+ rsync) based intelligent file sync with automatic backups and file move/delete tracking.
 
-Version: 20180629.0
+Version: 20180630.0
 
 ## Features
 
@@ -25,9 +25,19 @@ Or download the zip file and run
 
     $ python setup.py install
 
-Note: On the remote machine, the path to PyFiSync must be found via SSH. If, for example, your python is from (Ana/Mini)conda, it places the past into the `.bash_profile`. Move that to `.bashrc` so that PyFiSync can be found. Alternatively, specify `PyFiSync_path` and `remote_program` in the config
+Note: On the remote machine, the path to PyFiSync must be found via SSH. If, for example, your python is from (Ana/Mini)conda, it places the paths into the `.bash_profile`. Move that to `.bashrc` so that PyFiSync can be found. Alternatively, specify `PyFiSync_path` and `remote_program` in the config
 
 ## Set Up
+
+First and foremost, set up ssh keys. On your *local* machine
+
+    $ cd
+    $ ssh-keygen -t rsa 
+    
+    # It is highly suggested you use a password but you can hit enter 
+    # twice to skip it
+
+    $ cat ~/.ssh/id_rsa.pub | ssh user@remote-system "mkdir -p ~/.ssh && cat >>  ~/.ssh/authorized_keys" 
 
 Set up is very easy. I will assume that `PyFiSync` is in the path or an alias has been set up:
 
@@ -63,7 +73,7 @@ By default, any time a file is to be overwritten or modified, it is backed up on
 
 Moves and deletions are tracked via attributes described below.
 
-Note: On HFS+ (and maybe APFS), macOS's file system, inodes are not reused quickly. On ext3 (Linux) they are recycled leading to issues when files are deleted and new ones are made.
+Note: On HFS+ (and maybe APFS?), macOS's file system, inodes are not reused quickly. On ext3 (Linux) they are recycled rapidly leading to issues when files are deleted and new ones are made. Do not use inodes alone on these systems
 
 Available attributes:
 
@@ -105,27 +115,25 @@ Exclusion naming is done is such a way that it replicated a *subset* of `rsync` 
 Examples:
 
 * Exclude **all** git directories: `.git/`
-* Exclude a specific folder: `/path/to/folder/` (where `/` is the start of the syn directory
+* Exclude a specific folder: `/path/to/folder/` (where `/` is the start of the sync directory
 * Exclude all files that start with `file`: `file*`
-* Exclude all filew that start with `file` in a specific directory: `/path/to/file*`
+* Exclude all files that start with `file` in a specific directory: `/path/to/file*`
 
 ### Symlinks
 
-First note that **all directory links are followed** regardless of setting. To excludes one, use exclusions.
+First note that **all directory links are followed** regardless of setting. Use exclusions to avoid syncing a linked directory.
 
-If `copy_symlinks_as_links=False` symlinked files sync their referent (and rsync uses `-L`) If `True` (default), symlinks copy the link itself (a la git)
-
-Also note that `copy_symlinks_as_links` aliases to `not symlinks` for backwards compatibility
+If `copy_symlinks_as_links=False` symlinked files sync their referent (and rsync uses `-L`) If `True` (default), symlinks copy the link itself (a la how git works)
 
 WARNINGS:
 
 1. if `copy_symlinks_as_links = False` and there are symlinked files to another IN sync root, there will be issues with the file tracking. Do not do this!
-2. As also noted in Python's documentation, there is no safeguard against recursively symlinked directories.
+2. As also noted in Python's documentation, there is no **safeguard against recursively symlinked directories**.
 3. rsync may throw warnings for broken links
 
 ### Ignore git-tracked files
 
-When selected, PyFiSync will exclude any file that is tracked by git and exclude `.git/` directories. This is preferable to syncing the `.git/` folder and everything since that can get corruped pretty easily. Then, to keep a directory in line, you can use git to sync specific files and PyFiSync for everything else.
+When selected, PyFiSync will exclude any file that is tracked by git and exclude `.git/` directories. This is preferable to syncing the `.git/` folder and everything since that can get corrupted pretty easily. Then, to keep a directory in line, you can use git to sync specific files and PyFiSync for everything else.
 
 Please note that if your typical use case involves larger files and requires better syncing, [`git-annex`][ga] or [`git-lfs`][gl] may be more appropriate
 
@@ -134,19 +142,19 @@ Please note that if your typical use case involves larger files and requires bet
 
 #### Warnings and Edge Cases
 
-There are a few gotchas to exlcuding git-tracked files
+There are a few gotchas to excluding git-tracked files
 
 * The exclusions are based on each machine's local copy of the git repo. Therefore, if a file is tracked via git on one side but not the other, it will transfer and overwrite (thankfully, this should be recoverable via git...)
     * It is *highly* recommended to **make sure the git repos are in sync** first!
-* If it is an entire type of file that will be kept in sync, it is faster and preferable to use git and PyFiSync's exclusions to keep them seperate
+* If it is an entire type of file that will be kept in sync, it is faster and preferable to use git and PyFiSync's exclusions to keep them separate
 
 ### Pre and Post Bash
 
 There is the option to also add some bash scripts pre and post sync. These may be useful if you wish to do a git push, pull, etc either remote or local.
 
-They are ALWAYS executed from the sync root (a `cd /path/to/syncroot` is inserted above). An error will cause the whole program to error out.
+They are ALWAYS executed from the sync root (a `cd /path/to/syncroot` is inserted above).
 
-## Modes
+## Primary Modes
 
 ### Sync
 
@@ -156,23 +164,23 @@ Synchronizes to the host and updates the file DBs
 
 ### Push and Pull mode
 
-A push or a pull follows the same logic as a sync except they do not do any kind of conflict resolution. Furthermore, **they do not do backups**.
+A push or a pull follows the same logic as a sync except they do not do any kind of conflict resolution and diminished backups.
 
-The following table represents how each mode handles things. **Note** that moves happen without deference to an existing file (though it will back it up).
+File backups *do* occur in a push or pull but a file can move into another and it will *not* backup.
 
-On the sending end, nothing is done for a regular `push/pull` but if the `--all` flag is set the last-sync-time is set *really* early so all files are considered new/modified on the sending end.
+Furthermore, because `--all` mode tells PyFiSync that *everything* has been modified, it is **highly** suggested to use `--no-backup` with `--all`. Since rsync is used for the transfer, the `--all` mode is otherwise still pretty fast.
 
-On the receiving end all files have an mtime of the last sync so none are modified and the old list is set to the new list so no files are deleted or moved.
 
-Note that since `rsync` is used for transfers, an `--all` transfer will be fast. But then it is suggested to use `--all` and `--no-backup`
+General Warning: As with `rsync`, push and pull modes do not guarantee parity of both sides. And there is no `--delete` mode. If push/pull are part of your regular workflow, consider using `rsync` directly.
 
-## Runing Tests
+
+## Running Tests
 
 To run the test, in bash, do:
 
     $ source run_test.sh
 
-In addition to testing a whole slew of edge cases, it also  will test all opperations on a local sync, and remote to both python2 and python3 (via `ssh localhost`). The run script will try to call `py.test` for both versions of python locally.
+In addition to testing a whole slew of edge cases, it also  will test all actions on a local sync, and remote to both python2 and python3 (via `ssh localhost`). The run script will try to call `py.test` for both versions of python locally.
 
 ### Python 3 Note
 

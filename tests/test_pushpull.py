@@ -39,8 +39,6 @@ def test_mod_new_different(remote,AB,all_):
     os.makedirs(testpath)
     testutil = testutils.Testutils(testpath=testpath)
 
-
-
     # Init
     testutil.write('A/fileA',text='fileA')
     testutil.write('A/fileB',text='fileB')
@@ -71,7 +69,7 @@ def test_mod_new_different(remote,AB,all_):
     testutil.run(config,mode=mode)
     # Check it -- Only need to check A
     diff = testutil.compare_tree()
-
+    
     if all_:
         assert len(diff) == 1
     else:
@@ -98,8 +96,6 @@ def test_move_overwrite(remote,AB,all_):
         pass
     os.makedirs(testpath)
     testutil = testutils.Testutils(testpath=testpath)
-
-
 
     # Init
     testutil.write('A/fileA0',text='fileA0')
@@ -133,42 +129,20 @@ def test_move_overwrite(remote,AB,all_):
     # Check it -- Only need to check A
     diff = testutil.compare_tree()
 
-    if AB == 'A': # Check backups in B
-        backB = glob(os.path.join(testpath,'B','.PyFiSync','backups','20*'))[0]
-        if all_:
-            # This file gets backed up before move but then the later upload
-            # tries to overwrite. fileB1 is not changed so it doesn't happen
-            # when not using --all
-            assert open(os.path.join(backB,'fileB1.0')).read().strip() == 'fileA0'
-
-        # Overwritten file should be backed up
-        assert open(os.path.join(backB,'fileB1')).read().strip() == 'fileB1'
-
-        # Backed up file on transfer
-        assert open(os.path.join(backB,'fileA1')).read().strip() == 'fileB0'
-    else:
-        backA = glob(os.path.join(testpath,'A','.PyFiSync','backups','20*'))[0]
-        if all_:
-            # This file gets backed up before move but then the later upload
-            # tries to overwrite. fileA1 is not changed so it doesn't happen
-            # when not using --all
-            assert open(os.path.join(backA,'fileA1.0')).read().strip() == 'fileB0'
-
-        # Overwritten file should be backed up
-        assert open(os.path.join(backA,'fileA1')).read().strip() == 'fileA1'
-
-        # Backed up file on transfer
-        assert open(os.path.join(backA,'fileB1')).read().strip() == 'fileA0'
-
+    if all_:
+        assert len(diff) == 0
+        # In the end, all files are either moved or overwritten. We do not
+        # expect there to be any differences
+    elif AB == 'A': # Check backups in B
+        assert diff == [('missing_inB', 'fileB0')] # Never gets pushed
+        
+    elif AB == 'B': # Check backups in B
+        assert diff == [('missing_inA', 'fileA0')] # Never gets pulled
 
 
 
 
 
 if __name__=='__main__':
-    for remote,AB,all_ in itertools.product(remotes,['A','B'],[True,False]):
-        print(remote,AB,all_)
-        test_mod_new_different(remote,AB,all_)
-        test_move_overwrite(remote,AB,all_)
-# 
+    pass
 

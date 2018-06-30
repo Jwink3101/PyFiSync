@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20180629.0'
+__version__ = '20180630.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -235,28 +235,39 @@ def main(mode):
     
     txt = None
     if mode in ['push','push_all']:
+        config._pushpull=True
         txt = 'push mode: setting as no changes in B.'
         if mode == 'push_all':
-             config.last_run = 10  # *Everything* will get queued on A
              txt += ' --all mode. Set all A files as new/modified'
-        for fileB in filesB:
-            fileB['mtime'] = config.last_run    # *nothing* will get queued on B
-        filesB_old = copy.deepcopy(filesB)      # No deletes
+        # Just make the new files same as the old ones so it looks like nothing
+        # has changed and the mtimes are still correct
+        filesB = copy.copy(filesB_old)
+       
+        if mode == 'push_all':  # Make all A files modified
+            config.mod_conflict = 'newer'
+            now = time.time()
+            for fileA in filesA:
+                fileA['mtime'] = now
 
     if mode in ['pull','pull_all']:
+        config._pushpull=True
         txt = 'pull mode: setting as no changes in A.'
         if mode == 'pull_all':
-             config.last_run = 10 # *Everything* will get queued on B
              txt += ' --all mode. Set all B files as new/modified'
-        for fileA in filesA:
-            fileA['mtime'] = config.last_run    # *nothing* will get queued on A
-        filesA_old = copy.deepcopy(filesA)      # No deletes
+        
+        # Just make the new files same as the old ones so it looks like nothing
+        # has changed and the mtimes are still correct
+        filesA = copy.copy(filesA_old)
 
-    if mode == 'sync':
-        force_mv = False
-    else:
-        force_mv = True
+        if mode == 'pull_all': # Make all B files modified
+            config.mod_conflict = 'newer'
+            
+            now = time.time()
+            for fileB in filesB:
+                fileB['mtime'] = now
 
+    force_mv = mode != 'sync' 
+    
     if txt is not None:
         log.line()
         log.add('Appying modifications to lists for push/pull modes')
@@ -578,14 +589,14 @@ def determine_file_transfers(filesA,filesB):
     """
     global log
 
-    txt1  = 'CONFLICT: File modified on both sides\n'
-    txt1 += '            {path:s}\n'
-    txt1 += '              A: {mtimeA:s}\n'
-    txt1 += '              B: {mtimeB:s}\n'
-    txt1 += "          resolving with '{res:s}' as per config\n"
+    txt1  = ('CONFLICT: File modified on both sides\n'
+             '            {path:s}\n'
+             '              A: {mtimeA:0.0f}\n'
+             '              B: {mtimeB:0.0f}\n'
+             "          resolving with '{res:s}' as per config\n")
 
-    txt2  = 'WARNING: File deleted on {AB} but modified on {BA}. Transfer\n'
-    txt2 += '          File: {path:s}\n'
+    txt2  = ('WARNING: File deleted on {AB} but modified on {BA}. Transfer\n'
+             '          File: {path:s}\n')
 
 
     action_queueA = [] # Actions to be performed ON A
@@ -638,7 +649,9 @@ def determine_file_transfers(filesA,filesB):
 
 
         ###################
+        
         res = config.mod_conflict
+        log.add(txt1.format(path=path,mtimeA=fileA['mtime'],mtimeB=fileB['mtime'],res=res))
 
         if res == 'A':
             tqA2B.append(path)
@@ -756,7 +769,11 @@ def apply_action_queue(dirpath,queue,force=False):
                 dest = os.path.join(backup_path,path) + '.' + str(i)
                 i += 1
 
-            if action == 'backup' and config.backup:
+            if not os.path.exists(src) and getattr(config,'_pushpull',True):
+                # This is an edge case in push/pull modes where a file may have
+                # been moved but is not tracked. Do not do anything
+                log.add("WARNING: couldn't find {src} for action in push/pull mode".format(src=src))
+            elif action == 'backup' and config.backup:
                 shutil.copy2(src,dest)
                 log.add('backup: ' + path)
             elif action=='delete' and config.backup:
