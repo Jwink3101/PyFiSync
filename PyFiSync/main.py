@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20180630.0'
+__version__ = '20180701.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -154,14 +154,14 @@ def main(mode):
     """
     global log,config,remote_interface
 
-    txt  = """   _____       ______ _  _____                   \n"""
-    txt += """  |  __ \     |  ____(_)/ ____|                  \n"""
-    txt += """  | |__) |   _| |__   _| (___  _   _ _ __   ___  \n"""
-    txt += """  |  ___/ | | |  __| | |\___ \| | | | '_ \ / __| \n"""
-    txt += """  | |   | |_| | |    | |____) | |_| | | | | (__  \n"""
-    txt += """  |_|    \__, |_|    |_|_____/ \__, |_| |_|\___| \n"""
-    txt += """          __/ |                 __/ |            \n"""
-    txt += """         |___/                 |___/             \n"""
+    txt = ("""   _____       ______ _  _____                   \n"""
+           """  |  __ \     |  ____(_)/ ____|                  \n"""
+           """  | |__) |   _| |__   _| (___  _   _ _ __   ___  \n"""
+           """  |  ___/ | | |  __| | |\___ \| | | | '_ \ / __| \n"""
+           """  | |   | |_| | |    | |____) | |_| | | | | (__  \n"""
+           """  |_|    \__, |_|    |_|_____/ \__, |_| |_|\___| \n"""
+           """          __/ |                 __/ |            \n"""
+           """         |___/                 |___/             \n""")
     
     log.line()
     log.add(txt,end='\n')
@@ -172,6 +172,8 @@ def main(mode):
     T0 = time.time()
     log.add('Start Time: ' +_unix_time(T0))
     log.add('Mode: {:s}'.format(mode))
+    log.add('Version: ' + __version__)
+    
 
     timepath = os.path.join(config.pathA,'.PyFiSync','last_run.time')
     config.last_run = float(open(timepath).read())
@@ -193,24 +195,37 @@ def main(mode):
     log.add('Paring current file lists')
     log.add('  Parsing files for A (local)')
     
-    sha1 = 'sha1' in config.prev_attributesA + config.move_attributesA
-    
+    sha1A = 'sha1' in config.prev_attributesA + config.move_attributesA
+    sha1B = 'sha1' in config.move_attributesB + config.prev_attributesB
+
+
     PFSwalker = PFSwalk.file_list(config.pathA,config,log,
-                                  sha1=sha1,empty='store',
+                                  sha1=sha1A,empty='store',
                                   use_hash_db=config.use_hash_db)
-    filesA = PFSwalker.files()
-
-    sha1 = 'sha1' in config.move_attributesB + config.prev_attributesB
-
+    
     if remote:
+        # Multithread it
+        loc_walk_thread = utils.ReturnThread(target=PFSwalker.files)
+        loc_walk_thread.start()
+        
         log.add('  Parsing files for B (remote)')
         log.prepend = '   '
-        filesB = remote_interface.file_list(config.move_attributesB \
-                                          + config.prev_attributesB,empty='store')
+        
+        rem_walk_thread = utils.ReturnThread(
+                            target=remote_interface.file_list,
+                            args=(config.move_attributesB + config.prev_attributesB,),
+                            kwargs=dict(empty='store')
+                            )
+        rem_walk_thread.start()
+        
+        filesA = loc_walk_thread.join()
+        filesB = rem_walk_thread.join()
         log.prepend = ''
     else:
+        filesA = PFSwalker.files()
+        
         log.add('  Parsing files for B (local)')
-        _tmp = PFSwalk.file_list(config.pathB,config,log,sha1=sha1,empty='store',
+        _tmp = PFSwalk.file_list(config.pathB,config,log,sha1=sha1B,empty='store',
                                  use_hash_db=config.use_hash_db)
         filesB = _tmp.files()
 

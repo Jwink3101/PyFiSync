@@ -17,6 +17,13 @@ from io import open
 import itertools
 import argparse
 import copy
+from threading import Thread
+
+try:
+    from queue import Queue
+except ImportError:
+    from Queue import Queue
+    
 
 if sys.version_info >= (3,):
     unicode = str
@@ -278,3 +285,27 @@ class RawSortingHelpFormatter(argparse.RawDescriptionHelpFormatter):
             count += -1
             item = item[1:]
         return count
+
+
+class ReturnThread(Thread):
+    """
+    Like a regular thread except when you `join`, it returns the function
+    result. And it assumes a target is always passed
+    """
+    
+    def __init__(self,**kwargs):
+        self.target = kwargs.pop('target',False)
+        if self.target is False:
+            raise ValueError('Must specify a target')
+        self.q = Queue()
+        super(ReturnThread, self).__init__(target=self._target,**kwargs)
+    
+    def _target(self,*args,**kwargs):
+        self.q.put( self.target(*args,**kwargs) )
+    
+    def join(self,**kwargs):
+        super(ReturnThread, self).join(**kwargs)
+        res = self.q.get()
+        self.q.task_done()
+        self.q.join()
+        return res
