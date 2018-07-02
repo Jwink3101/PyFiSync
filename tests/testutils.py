@@ -10,10 +10,10 @@ import shutil
 from pprint import pprint
 
 def add_module():
+    
     path = os.path.abspath(__file__)
     path = os.path.split(os.path.split(path)[0])[0] # Move up one
-    if path not in sys.path:
-        sys.path.append(path)
+    sys.path.insert(0,path)
 
 add_module()
 import PyFiSync

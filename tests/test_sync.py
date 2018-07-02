@@ -6,8 +6,7 @@ try:
     from . import testutils
 except (ValueError,ImportError):
     import testutils
-    
-testutils.add_module()
+testutils.add_module() # make sure the test are importing the NON-installed version
 
 import PyFiSync
 

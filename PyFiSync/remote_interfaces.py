@@ -201,21 +201,22 @@ class ssh_rsync(remote_interface_base):
 
         # construct the call cmd
         if len(config.PyFiSync_path) == 0:
-            cmd += 'PyFiSync.py _api apply_queue'
+            cmd += 'PyFiSync _api apply_queue'
         else:
             cmd += config.remote_program + ' '
-            if config.PyFiSync_path.endswith('PyFiSync.py'):
-                cmd += config.PyFiSync_path + ' _api apply_queue '
+            if any(config.PyFiSync_path.endswith('PyFiSync'+ext) for ext in ['','.py']):
+                cmd += config.PyFiSync_path + ' _api apply_queue'
             else:
-                cmd += os.path.join(config.PyFiSync_path,'PyFiSync.py _api apply_queue ')
-
+                cmd += os.path.join(config.PyFiSync_path,'PyFiSync.py _api apply_queue')
+    
+    
         if force:
             cmd += ' --force '
 
         if not config.backup:
             cmd += ' --no-backup '
 
-        cmd += config.pathB + ' {}"'.format(sentinel.decode('ascii'))
+        cmd += ' ' + config.pathB + ' {}"'.format(sentinel.decode('ascii'))
 
         out = ''
         err = ''
