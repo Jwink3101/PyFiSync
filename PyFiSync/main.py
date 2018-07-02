@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20180701.0'
+__version__ = '20180701.1'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -86,23 +86,40 @@ def reset_tracking(backup=True,empty='reset',set_time=False):
         log.add('(remote) B: {:s}{:s}'.format(config.userhost,config.pathB))
 
     log.add('Parsing files for A')
-    sha1 = 'sha1' in config.prev_attributesA + config.move_attributesA
-    _tmp = PFSwalk.file_list(config.pathA,config,log,sha1=sha1,empty=empty,
-                             use_hash_db=config.use_hash_db)
-    filesA = _tmp.files()
     
-    sha1 = 'sha1' in config.move_attributesB + config.prev_attributesB
+    sha1A = 'sha1' in config.prev_attributesA + config.move_attributesA
+    sha1B = 'sha1' in config.move_attributesB + config.prev_attributesB
 
+
+    PFSwalker = PFSwalk.file_list(config.pathA,config,log,
+                                  sha1=sha1A,empty='store',
+                                  use_hash_db=config.use_hash_db)
     if remote:
-        log.add('Parsing files for B remotely')
-        filesB = remote_interface.file_list(config.move_attributesB + config.prev_attributesB,empty)
+        # Multithread it
+        loc_walk_thread = utils.ReturnThread(target=PFSwalker.files)
+        loc_walk_thread.start()
+        
+        log.add('  Parsing files for B (remote)')
+        log.prepend = '   '
+        
+        rem_walk_thread = utils.ReturnThread(
+                            target=remote_interface.file_list,
+                            args=(config.move_attributesB + config.prev_attributesB,),
+                            kwargs=dict(empty=empty)
+                            )
+        rem_walk_thread.start()
+        
+        filesA = loc_walk_thread.join()
+        filesB = rem_walk_thread.join()
+        log.prepend = ''
     else:
-        log.add('Parsing files for B')
-        _tmp = PFSwalk.file_list(config.pathB,config,log,sha1=sha1,
-                                empty=empty,use_hash_db=config.use_hash_db)
+        filesA = PFSwalker.files()
+        
+        log.add('  Parsing files for B (local)')
+        _tmp = PFSwalk.file_list(config.pathB,config,log,sha1=sha1B,empty=empty,
+                                 use_hash_db=config.use_hash_db)
         filesB = _tmp.files()
-        #filesB = file_list(config.pathB,sha1=sha1,sha1_cache=False,empty=empty)
-
+        
     filesA_old = os.path.join(config.pathA,'.PyFiSync','filesA.old')
     filesB_old = os.path.join(config.pathA,'.PyFiSync','filesB.old')
 
@@ -202,7 +219,6 @@ def main(mode):
     PFSwalker = PFSwalk.file_list(config.pathA,config,log,
                                   sha1=sha1A,empty='store',
                                   use_hash_db=config.use_hash_db)
-    
     if remote:
         # Multithread it
         loc_walk_thread = utils.ReturnThread(target=PFSwalker.files)
