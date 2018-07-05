@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20180702.0'
+__version__ = '20180705.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -92,7 +92,7 @@ def reset_tracking(backup=True,empty='reset',set_time=False):
 
 
     PFSwalker = PFSwalk.file_list(config.pathA,config,log,
-                                  sha1=sha1A,empty='store',
+                                  sha1=sha1A,empty=empty,
                                   use_hash_db=config.use_hash_db)
     if remote:
         # Multithread it
@@ -374,7 +374,6 @@ def main(mode):
     log.add('Final Transfer')
     log.space=2
     remote_interface.transfer(tqA2B,tqB2A)
-    
     
     ## Get updated lists
     log.space = 0

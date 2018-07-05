@@ -623,6 +623,7 @@ def test_delete_file_in_folder(remote): # Old test 12
 
     # Init
     testutil.write('A/dir/file',text='file')
+    testutil.write('A/dir2/file2',text='file')
 
     # copy over
     testutil.copy_tree()
@@ -633,14 +634,17 @@ def test_delete_file_in_folder(remote): # Old test 12
 
     # Apply actions
     testutil.remove('A/dir/file')
+    testutil.remove('B/dir2/file2')
 
     # Sync
     testutil.run(config)
 
-    # Check it -- should be in A
+    # Check it -- should be there
     assert testutil.exists('A/dir/')
+    assert testutil.exists('B/dir2/')
     
-    # Should have been deleted in B
+    # Should not be there
+    assert not testutil.exists('A/dir2/')
     assert not testutil.exists('B/dir/')
 
 
@@ -1628,7 +1632,6 @@ def test_use_hashdb(remote): # This used to be test 01
 
 
 if __name__=='__main__':    
-    test_nothing(True)
     sys.exit()
 
 

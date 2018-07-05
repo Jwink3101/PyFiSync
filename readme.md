@@ -2,7 +2,7 @@
 
 Python (+ rsync) based intelligent file sync with automatic backups and file move/delete tracking.
 
-Version: 20180702.0
+Version: 20180705.0
 
 ## Features
 
