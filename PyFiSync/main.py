@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20180705.0'
+__version__ = '20180706.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -97,6 +97,7 @@ def reset_tracking(backup=True,empty='reset',set_time=False):
     if remote:
         # Multithread it
         loc_walk_thread = utils.ReturnThread(target=PFSwalker.files)
+        loc_walk_thread.daemon = True
         loc_walk_thread.start()
         
         log.add('  Parsing files for B (remote)')
@@ -107,6 +108,7 @@ def reset_tracking(backup=True,empty='reset',set_time=False):
                             args=(config.move_attributesB + config.prev_attributesB,),
                             kwargs=dict(empty=empty)
                             )
+        rem_walk_thread.daemon = True
         rem_walk_thread.start()
         
         filesA = loc_walk_thread.join()
@@ -222,6 +224,7 @@ def main(mode):
     if remote:
         # Multithread it
         loc_walk_thread = utils.ReturnThread(target=PFSwalker.files)
+        loc_walk_thread.daemon = True
         loc_walk_thread.start()
         
         log.add('  Parsing files for B (remote)')
@@ -232,6 +235,7 @@ def main(mode):
                             args=(config.move_attributesB + config.prev_attributesB,),
                             kwargs=dict(empty='store')
                             )
+        rem_walk_thread.daemon = True
         rem_walk_thread.start()
         
         filesA = loc_walk_thread.join()

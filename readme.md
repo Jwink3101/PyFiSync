@@ -2,7 +2,7 @@
 
 Python (+ rsync) based intelligent file sync with automatic backups and file move/delete tracking.
 
-Version: 20180705.0
+Version: 20180706.0
 
 ## Features
 
@@ -215,4 +215,16 @@ A backend needs to be able to:
 This means that something like S3 or B2 could be incorporated (though B2 does not support moves).
 
 See the `remote_interfaces.py` and the base class `remote_interface_base` for details.
+
+## Potential Issues
+
+On some `openssh` installations on macOS (anecdotally, from `brew`), there seems to be a problem with sending the wrong encoding to the remote terminal which makes it *seem* like there is a unicode error in PyFiSync. This is actually related to sending terminal encoding. See [this](https://askubuntu.com/a/874765) where they had the *opposite* problem.
+
+The fix is to add the following to `/etc/ssh/ssh_config` or `~/.ssh/config`:
+
+    Host *
+        SendEnv LANG LC_* # Send locale to remote
+
+
+
 
