@@ -1,8 +1,6 @@
 # PyFiSync
 
-Python (+ rsync) based intelligent file sync with automatic backups and file move/delete tracking.
-
-Version: 20180706.0
+Python (+ rsync) based intelligent file sync with automatic backups and file move/delete tracking. Version: 20180706.0
 
 ## Features
 
@@ -10,64 +8,17 @@ Version: 20180706.0
     * Especially powerful on MacOS, but works well enough on linux.
 * Works out of the box with Python (tested on 2.7 and 3.6)
 * Works over SSH for secure and easy connections
-* Uses rsync for actual file transfers so it is bandwidth saving
+* Uses rsync for actual file transfers to save bandwidth
 * Extensively tested for a **huge** variety of edge-cases
-
-## Install
-
-This is *no dependancies!*. Everything is included in the package (though `ldtable` is also separately developed [here](https://github.com/Jwink3101/ldtable))
-
-To install:
-
-    $ pip install git+https://github.com/Jwink3101/PyFiSync
-    
-Or download the zip file and run
-
-    $ python setup.py install
-
-Note: On the remote machine, the path to PyFiSync must be found via SSH. If, for example, your python is from (Ana/Mini)conda, it places the paths into the `.bash_profile`. Move that to `.bashrc` so that PyFiSync can be found. Alternatively, specify `PyFiSync_path` and `remote_program` in the config
-
-## Set Up
-
-First and foremost, set up ssh keys. On your *local* machine
-
-    $ cd
-    $ ssh-keygen -t rsa 
-    
-    # It is highly suggested you use a password but you can hit enter 
-    # twice to skip it
-
-    $ cat ~/.ssh/id_rsa.pub | ssh user@remote-system "mkdir -p ~/.ssh && cat >>  ~/.ssh/authorized_keys" 
-
-Set up is very easy. I will assume that `PyFiSync` is in the path or an alias has been set up:
-
-    $ PyFiSync init path/to/sync_dir
-
-Then modify the config file. All options are commented
-
-    $ PyFiSync reset --force path/to/sync_dir
-
-Then sync (or push or pull)!. Choose one:
-
-    $ PyFiSync sync path/to/syncdir
-    $ PyFiSync push --all --no-backup path/to/syncdir
-    $ PyFiSync pull --all --no-backup path/to/syncdir
-    
-(The `--all` is optional but suggested for the first sync. If using `--all`, it is *highly* suggested to add `--no-backup` since everything would otherwise be copied)
-
-Or, (`PyFiSync` assumes a `sync .` if not given other options)
-
-    $ cd path/to/syncdir
-    $ PyFiSync
 
 
 ## Details
 
-PyFiSync uses a small database of files from the last sync to track moves and deletions (based on settable attributes such as inode numbers, sha1 hashes, and/or create time). It then compares `mtime` from both sides on all files to decide on transfers.
+PyFiSync uses a small database of files from the last sync to track moves and deletions (based on changeable attributes such as inode numbers, sha1 hashes, and/or create time). It then compares `mtime` from both sides on all files to decide on transfers.
 
 ### Backups
 
-By default, any time a file is to be overwritten or modified, it is backed up on that machine first. No distinction in the backup is made for overwrite vs delete.
+By default, any time a file is to be overwritten or modified, it is backed up on the machine first. No distinction is made in the backup for overwrite vs delete.
 
 ### Attributes
 
@@ -93,9 +44,57 @@ Available attributes:
 
 PyFiSync syncs files and therefore will *not* sync empty directories from one machine to the other. However, if, and only if, a directory is *made* empty by the sync, it will be deleted. That includes nested directories.
 
+
+## Install
+
+This are *no dependancies!*. Everything is included in the package (though `ldtable` is also separately developed [here](https://github.com/Jwink3101/ldtable))
+
+To install:
+
+    $ pip install git+https://github.com/Jwink3101/PyFiSync
+    
+Or download the zip file and run
+
+    $ python setup.py install
+
+Note: On the remote machine, the path to PyFiSync must be found via SSH. For example, if your python is from (Ana/Mini)conda, then it places the paths into the `.bash_profile`. Move the paths to `.bashrc` so that PyFiSync can be found. Alternatively, specify `PyFiSync_path` and `remote_program` in the config.
+
+## Set Up
+
+First set up ssh keys on your *local* machine:
+
+    $ cd
+    $ ssh-keygen -t rsa 
+    
+    # It is highly suggested you use a password but you can hit enter 
+    # twice to skip it
+
+    $ cat ~/.ssh/id_rsa.pub | ssh user@remote-system "mkdir -p ~/.ssh && cat >>  ~/.ssh/authorized_keys" 
+
+I will assume that `PyFiSync` is in the path or an alias has been set up:
+
+    $ PyFiSync init path/to/sync_dir
+
+Then modify the config file. All options are commented.
+
+    $ PyFiSync reset --force path/to/sync_dir
+
+Then sync, push, or pull by choosing one of the following commands:
+
+    $ PyFiSync sync path/to/syncdir
+    $ PyFiSync push --all --no-backup path/to/syncdir
+    $ PyFiSync pull --all --no-backup path/to/syncdir
+    
+(The `--all` is optional but suggested for the first sync. If using `--all`, it is *highly* suggested to add `--no-backup` since everything would be copied)
+
+Or, (`PyFiSync` assumes a `sync .` if not given other options)
+
+    $ cd path/to/syncdir
+    $ PyFiSync
+
 ## Settings
 
-There are many settings, all documented in the config file written after an `init`. Here are a few
+There are many settings, all documented in the config file written after an `init`. Here are a few:
 
 ### Exclusions
 
@@ -127,9 +126,9 @@ If `copy_symlinks_as_links=False` symlinked files sync their referent (and rsync
 
 WARNINGS:
 
-1. if `copy_symlinks_as_links = False` and there are symlinked files to another IN sync root, there will be issues with the file tracking. Do not do this!
-2. As also noted in Python's documentation, there is no **safeguard against recursively symlinked directories**.
-3. rsync may throw warnings for broken links
+* If `copy_symlinks_as_links = False` and there are symlinked files to another IN sync root, there will be issues with the file tracking. Do not do this!
+* As also noted in Python's documentation, there is no **safeguard against recursively symlinked directories**.
+* rsync may throw warnings for broken links
 
 ### Ignore git-tracked files
 
@@ -186,7 +185,7 @@ In addition to testing a whole slew of edge cases, it also  will test all action
 
 The code is tested and compatible with both python 2 and 3. Furthermore, if using a later version of python (or have installed the backported scandir), the file listing time will be faster.
 
-## Known Issues and Limitation
+## Known Issues and Limitations
 
 The test suite is **extremely** extensive as to cover tons of different and difficult scenarios. See the tests for further exploration of how the code handles these cases. Please note that unless specified explicitly in the config or the command-line flag, all deletions and (future) overwrites first perform a backup. Moves are not backed up but make likely be unwound from the logs.
 
