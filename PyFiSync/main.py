@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20180706.0'
+__version__ = '20180710.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -113,6 +113,11 @@ def reset_tracking(backup=True,empty='reset',set_time=False):
         
         filesA = loc_walk_thread.join()
         filesB = rem_walk_thread.join()
+        
+        if filesB is None:
+            sys.stderr.write('Error on remote call. See logged warnings\n')
+            sys.exit(2)
+        
         log.prepend = ''
     else:
         filesA = PFSwalker.files()
@@ -239,7 +244,12 @@ def main(mode):
         rem_walk_thread.start()
         
         filesA = loc_walk_thread.join()
-        filesB = rem_walk_thread.join()
+        filesB = rem_walk_thread.join()        
+    
+        if filesB is None:
+            sys.stderr.write('Error on remote call. See logged warnings\n')
+            sys.exit(2)
+        
         log.prepend = ''
     else:
         filesA = PFSwalker.files()

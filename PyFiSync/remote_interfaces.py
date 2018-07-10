@@ -176,8 +176,12 @@ class ssh_rsync(remote_interface_base):
         with open(outfile.name,'rb') as F:
             out = F.read()
         out = out[out.find(sentinel) + len(sentinel):]
-        out = zlib.decompress(out)
-    
+
+        try:
+            out = zlib.decompress(out)    
+        except:
+            return
+        
         return json.loads(out)
 
     def apply_queue(self,queue,force=False):

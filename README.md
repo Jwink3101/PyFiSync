@@ -1,6 +1,6 @@
 # PyFiSync
 
-Python (+ rsync) based intelligent file sync with automatic backups and file move/delete tracking. Version: 20180706.0
+Python (+ rsync) based intelligent file sync with automatic backups and file move/delete tracking.
 
 ## Features
 
