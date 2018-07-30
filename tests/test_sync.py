@@ -117,6 +117,7 @@ def test_move_files(remote): # old test 03
 
     # Init
     testutil.write('A/moveA',text='moveA')
+    testutil.write('A/the/very/deep/folder/path/file',text='file')
     testutil.write('A/moveB',text='moveB')
 
     # copy over
@@ -129,6 +130,7 @@ def test_move_files(remote): # old test 03
     # Apply actions
     testutil.move('A/moveA','A/moveA_moved')
     testutil.move('B/moveB','B/ff/moveB_moved')
+    testutil.move('B/the/very/deep/folder/path/file','B/the/very/deep/folder/path/filename')
 
     # Sync
     testutil.run(config)
@@ -139,11 +141,14 @@ def test_move_files(remote): # old test 03
     assert not testutil.exists('A/test03/moveA')
     assert not testutil.exists('A/test03/moveB')
 
-    # Make sure it actually did the move
+    # Make sure it actually did the move and not just transfer
     log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
     log_txt = open(log_path[-1]).read()
     assert "No A >>> B transfers" in log_txt
     assert "No A <<< B transfers" in log_txt
+    assert "move: moveB --> ff/moveB_moved" in log_txt
+    assert "move: the/very/deep/folder/path/{file --> filename}" in log_txt # new move naming
+    assert "move: moveA --> moveA_moved" in log_txt
 
     # Finally
     assert len(testutil.compare_tree()) == 0

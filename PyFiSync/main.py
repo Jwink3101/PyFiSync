@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20180710.0'
+__version__ = '20180730.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -477,7 +477,6 @@ def compare_queue_moves(filesA,filesB,filesA_old,filesB_old):
             * delete
 
     transfer queue
-
     """
 
     global log,tqA2B,tqB2A
@@ -490,7 +489,6 @@ def compare_queue_moves(filesA,filesB,filesA_old,filesB_old):
     log.space = 0
     log.add('Comparing, resolving, and queuing file DELETIONS.\n')
     log.space = 2
-
 
     txt  = 'WARNING: File deleted on {AB:s} but moved there, new, or \n'
     txt += '         or modified on {BA:s}. Ignore delete and add to\n'
@@ -750,7 +748,6 @@ def apply_action_queue(dirpath,queue,force=False):
     txt += '           {src:s} --> {dest:s}\n'
     txt += '          {result:s}'
 
-    mtxt = 'move: {src:s} --> {dest:s}'
 
     backup_path = os.path.join(dirpath,'.PyFiSync','backups',
         datetime.datetime.now().strftime('%Y-%m-%d_%H%M%S'))
@@ -794,7 +791,7 @@ def apply_action_queue(dirpath,queue,force=False):
                 pass
 
             shutil.move(src,dest)
-            log.add(mtxt.format(src=path[0],dest=path[1]))
+            log.add('move: ' + utils.move_txt(path[0],path[1]))
 
         if action in ['backup','delete']:
             src = os.path.join(dirpath,path)

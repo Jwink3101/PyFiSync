@@ -287,6 +287,39 @@ class RawSortingHelpFormatter(argparse.RawDescriptionHelpFormatter):
         return count
 
 
+def move_txt(src,dst):
+    """Apply some pretty printing to moves"""
+    _fjoin = lambda s: '' if len(s) == 0 else (os.sep if s[0] == '' else '') + os.sep.join(s)
+
+    # Split as sep and add it in
+    srcs = src.split(os.sep)
+    dsts = dst.split(os.sep)
+    
+    comb = []
+    
+    for s,d in zip(srcs,dsts):
+        if s != d:
+            break
+        comb.append(s)
+    
+    
+    sremain = _fjoin(srcs[len(comb):])
+    dremain = _fjoin(dsts[len(comb):])
+    comb = _fjoin(comb)
+
+    if len(comb)>2 and len(sremain)>0 and len(dremain)>0: 
+        # Just so that we aren't doing this for nothing
+        mtxt = comb + os.sep + '{' + sremain + ' --> ' + dremain + '}'
+    else:
+        mtxt = '{src:s} --> {dst:s}'.format(src=src,dst=dst)
+    
+    while os.sep*2 in mtxt:
+        mtxt = mtxt.replace(os.sep*2,os.sep)
+    
+    return mtxt
+    
+
+
 class ReturnThread(Thread):
     """
     Like a regular thread except when you `join`, it returns the function
