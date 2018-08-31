@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20180730.0'
+__version__ = '20180831.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -633,8 +633,8 @@ def determine_file_transfers(filesA,filesB):
 
     txt1  = ('CONFLICT: File modified on both sides\n'
              '            {path:s}\n'
-             '              A: {mtimeA:0.0f}\n'
-             '              B: {mtimeB:0.0f}\n'
+             '              A: {mtimeA:s}\n'
+             '              B: {mtimeB:s}\n'
              "          resolving with '{res:s}' as per config\n")
 
     txt2  = ('WARNING: File deleted on {AB} but modified on {BA}. Transfer\n'
@@ -693,7 +693,7 @@ def determine_file_transfers(filesA,filesB):
         ###################
         
         res = config.mod_conflict
-        log.add(txt1.format(path=path,mtimeA=fileA['mtime'],mtimeB=fileB['mtime'],res=res))
+        log.add(txt1.format(path=path,mtimeA=mtimeA,mtimeB=mtimeB,res=res))
 
         if res == 'A':
             tqA2B.append(path)

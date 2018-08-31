@@ -103,6 +103,41 @@ def test_mod_files(remote): # old test 02
     assert len(testutil.compare_tree()) == 0
 
 @pytest.mark.parametrize("remote", remotes)
+def test_simple_conflict(remote): 
+    """ Same Files are modified both in A and B """
+    testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
+            'test_dirs','simple_conflict')
+    try:
+        shutil.rmtree(testpath)
+    except:
+        pass
+    os.makedirs(testpath)
+    testutil = testutils.Testutils(testpath=testpath)
+
+
+    # Init
+    testutil.write('A/file1',text='test02.a')
+
+    # copy over
+    testutil.copy_tree()
+
+    # Start it
+    config = testutil.get_config(remote=remote)
+    testutil.init(config)
+
+    # Apply actions
+    testutil.write('A/file1',text='A',mode='a',time_adj=+15) # append it
+    testutil.write('B/file1',text='B',mode='a',time_adj=+25) # append it
+
+    # Sync
+    testutil.run(config)
+    
+    assert testutil.compare_tree() == []
+    
+    files = set(os.path.basename(p) for p in testutil.tree(os.path.join(testpath,'A')))
+    assert set([u'file1.machineA', u'file1.machineB'])
+
+@pytest.mark.parametrize("remote", remotes)
 def test_move_files(remote): # old test 03
     """ Different Files are modified both in A and B """
     testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
@@ -1637,6 +1672,7 @@ def test_use_hashdb(remote): # This used to be test 01
 
 
 if __name__=='__main__':    
+    test_simple_conflict(False)
     sys.exit()
 
 
