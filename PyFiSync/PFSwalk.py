@@ -281,10 +281,10 @@ class file_list:
 
         try:
             stat = item.stat(follow_symlinks=follow_symlinks)
-        except OSError:
+        except OSError as E:
             self.log.add_err('\n' + 
-                             'ERROR: Could not find information on {}\n'.format(filepath) +
-                             '         May be a BROKEN link. Skipping\n')
+                             'ERROR: Could not find information on {}\n'.format(relpath) +
+                             '         May be a BROKEN link.\n MSG: {}\nskipping...\n'.format(E))
             return
             
         for attrib in stat_attributes:
