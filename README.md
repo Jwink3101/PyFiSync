@@ -44,7 +44,6 @@ Available attributes:
 
 PyFiSync syncs files and therefore will *not* sync empty directories from one machine to the other. However, if, and only if, a directory is *made* empty by the sync, it will be deleted. That includes nested directories.
 
-
 ## Install
 
 This are *no dependancies!*. Everything is included in the package (though `ldtable` is also separately developed [here](https://github.com/Jwink3101/ldtable))
@@ -57,7 +56,7 @@ Or download the zip file and run
 
     $ python setup.py install
 
-Note: On the remote machine, the path to PyFiSync must be found via SSH. For example, if your python is from (Ana/Mini)conda, then it places the paths into the `.bash_profile`. Move the paths to `.bashrc` so that PyFiSync can be found. Alternatively, specify `PyFiSync_path` and `remote_program` in the config.
+Note: On the remote machine, the path to PyFiSync must be found via SSH. For example, if your python is from (Ana/Mini)conda, then it places the paths into the `.bash_profile`. Move the paths to `.bashrc` so that PyFiSync can be found. Alternatively, specify `PyFiSync_path` and `remote_program` in the config. Or, you can explicitly set the path to the files
 
 ## Set Up
 
@@ -215,14 +214,9 @@ This means that something like S3 or B2 could be incorporated (though B2 does no
 
 See the `remote_interfaces.py` and the base class `remote_interface_base` for details.
 
-## Potential Issues
+## Other Questions
 
-On some `openssh` installations on macOS (anecdotally, from `brew`), there seems to be a problem with sending the wrong encoding to the remote terminal which makes it *seem* like there is a unicode error in PyFiSync. This is actually related to sending terminal encoding. See [this](https://askubuntu.com/a/874765) where they had the *opposite* problem.
-
-The fix is to add the following to `/etc/ssh/ssh_config` or `~/.ssh/config`:
-
-    Host *
-        SendEnv LANG LC_* # Send locale to remote
+See the (growing) [FAQ](FAQs.md) for some more details and/or troubleshooting
 
 
 
