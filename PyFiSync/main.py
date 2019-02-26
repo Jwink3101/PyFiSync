@@ -32,21 +32,6 @@ ldtable = ldtable.ldtable
 
 from . import remote_interfaces
 
-if sys.version_info[0] > 2:
-    xrange = range
-
-# walk with scandir vs listdir
-if sys.version_info >= (3,5):
-    walk = os.walk
-    _scandir = True
-else:
-    try:
-        from scandir import walk
-        _scandir = True
-    except ImportError:
-        walk = os.walk
-        _scandir = False
-
 def init(path):
     """
     Intiliaze PyFiSync
@@ -89,7 +74,6 @@ def reset_tracking(backup=True,empty='reset',set_time=False):
     
     sha1A = 'sha1' in config.prev_attributesA + config.move_attributesA
     sha1B = 'sha1' in config.move_attributesB + config.prev_attributesB
-
 
     PFSwalker = PFSwalk.file_list(config.pathA,config,log,
                                   sha1=sha1A,empty=empty,
@@ -274,8 +258,7 @@ def main(mode):
 
     filesA_old = PFSwalker.filter_old_list(filesA_old)
     filesB_old = PFSwalker.filter_old_list(filesB_old)
-
-
+    
     ## Handle push and pull modes
     
     txt = None
@@ -460,7 +443,6 @@ def file_track(files_old,files_new,prev_attributes,move_attributes):
     # Reindex the DBs
     files_old.reindex()
     files_new.reindex()
-
 
 def compare_queue_moves(filesA,filesB,filesA_old,filesB_old):
     """
@@ -888,48 +870,6 @@ def run_bash(pre):
 def _unix_time(val):
     return datetime.datetime.fromtimestamp(float(val)).strftime('%Y-%m-%d %H:%M:%S')
 
-
-
-usage="""
-PyFiSync -- Python based file synchronizer with inteligent move tracking and
-              conflict resolution
-
-Usage:
-
-    PyFiSync MODE <options> PATH
-
-Or, if *just* called as: PyFiSync , it will assume `PyFiSync sync .`
-
-
-Modes and Options
-    sync -- Perform sync on the path
-
-        -h,--help   : Print this help
-        --no-backup : Override config and do not back up files
-        -s,--silent : Do not print the log to the screen
-
-    push/pull -- push or pull all changes with no conflict resolution
-
-        --all       : Push every file even if unmodified. Note, will cause
-                      backups of every file. Consider --no-backup
-                      This is useful if reset files.
-        -h,--help   : Print this help
-        --no-backup : Override config and do not back up files
-        -s,--silent : Do not print the log to the screen
-
-    init -- Initialize PyFiSync in the specified directory
-
-    reset -- Completely reset file tracking. No changes pre-reset will be
-             propgrated until you do a `push/pull --all`
-
-        -h,--help   : Print this help
-        --force     : Do not prompt for confirmation
-
-        Note that if the files already exist, they will be backed up
-
-    help -- Print this help
-"""
-
 desc = """\
 Python (+ rsync) based intelligent file sync with automatic backups and file move/delete tracking.
 """
@@ -957,7 +897,8 @@ def cli(argv=None):
     parser_all_opts.add_argument('path',default='.',nargs='?',
         help="['%(default)s'] path to the PyFiSync directory")
     
-    subparsers = parser_main.add_subparsers(dest='mode',title='modes',help="[sync]. Enter `{mode} -h` for individual help")
+    subparsers = parser_main.add_subparsers(dest='mode',title='modes',
+        help="[sync]. Enter `{mode} -h` for individual help")
     
     ## Sync, Push,Pull
     # Options for all

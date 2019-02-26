@@ -192,9 +192,6 @@ class Testutils(object):
         # At init, every file's mod time was changed to be at least -(MAX_TIME_MOD+2)
         # so we do not need to modify the last_run
         
-#         last_run = float(open(os.path.join(pathA,'.PyFiSync','last_run.time')).read())
-#         with open(os.path.join(pathA,'.PyFiSync','last_run.time'),'w') as F:
-#             F.write('{:0.8f}'.format(last_run-1.0))
 
     def run(self,config,mode='sync',silent=False):
         pathA = os.path.join(self.testpath,'A')
