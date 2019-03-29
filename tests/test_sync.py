@@ -21,8 +21,8 @@ from pprint import pprint
 import pytest
 
 ## Specify whether to test remotely or locally...or both
-# remotes = [False]   # Just test locally
-# remotes = ['python2','python3']
+#remotes = [False]   # Just test locally
+#remotes = ['python2','python3']
 remotes = [False,'python2','python3']
 # remotes = ['python2']
 
@@ -178,6 +178,7 @@ def test_move_files(remote): # old test 03
 
     # Make sure it actually did the move and not just transfer
     log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
+    log_path.sort()
     log_txt = open(log_path[-1]).read()
     assert "No A >>> B transfers" in log_txt
     assert "No A <<< B transfers" in log_txt
@@ -918,6 +919,7 @@ def test_moved_file_size_track(remote): # Old test 17
 
     # Check it -- Only need to check A
     log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
+    log_path.sort()
     log_txt = open(log_path[-1]).read()
 
     # Should move
@@ -1024,6 +1026,7 @@ def test_replace_deleted_with_new(remote): #old test 20
     assert testutil.read('A/file0') == 'A1'
 
     log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
+    log_path.sort()
     log_txt = open(log_path[-1]).read()
     assert len(re.findall('WARNING: *File deleted on B but move.*\n.*\n.*\n *File: *file0?',log_txt,re.MULTILINE)) == 1
 
@@ -1136,6 +1139,7 @@ def test_remove_empty_folders(remote):
     assert testutil.read('A/file0') == 'A1'
 
     log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
+    log_path.sort()
     log_txt = open(log_path[-1]).read()
 
     assert len(re.findall('WARNING: *File deleted on B but move.*\n.*\n.*\n *File: *file0?',log_txt,re.MULTILINE)) == 1
@@ -1357,6 +1361,7 @@ def test_move_path_track(remote):
     assert diffs == [],"tree did not sync" # Even w/o move tracking, it should still sync
 
     log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
+    log_path.sort()
     log_txt = open(log_path[-1]).read()
     
     assert 'move: fileA --> fileAM' in log_txt # ['ino','size'] tracking shows move
@@ -1403,6 +1408,7 @@ def test_broken_links(remote): # old test 02
     
     # We also want to confirm that an error was printed to the screen
     log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
+    log_path.sort()
     log_txt = open(log_path[-1]).read()
     
     if remote: # No warnings if not remote
@@ -1563,6 +1569,7 @@ python -c "import sys;sys.stderr.write('error test\\n')" # Write to error
 
     # Make sure the STDERR is in the log
     log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
+    log_path.sort()
     log_txt = open(log_path[-1]).read()
     assert len(re.findall(r'STDERR: *?> *? error test',log_txt.replace('\n',''),re.DOTALL)) == 1
 
@@ -1672,7 +1679,7 @@ def test_use_hashdb(remote): # This used to be test 01
 
 
 if __name__=='__main__':    
-    test_simple_conflict(False)
+    test_replace_deleted_with_new('python3')
     sys.exit()
 
 
