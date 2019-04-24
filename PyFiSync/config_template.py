@@ -49,7 +49,13 @@ prev_attributesB = ['ino','path']
 
 ## Conflict Settings
 move_conflict = 'A'     # 'A' or 'B': When moves are conflicting
-mod_conflict = 'both'   # 'both','newer','A','B'
+
+# Modification date conflicts can be resolved as follows:
+# 'A','B' -- Always accept either A or B's copy regardless
+# 'both' -- Tag BOTH files to with the extension of the computer name
+# 'newer' -- Always keep the newer version
+# 'newer_tag' -- Keep the newer version un-named and tag the older
+mod_conflict = 'both'
 mod_resolution = 2.5    # (s) How much time difference is allowed between files
 
 # Symlinked directories are ALWAYS follow unless excluded. However, if 

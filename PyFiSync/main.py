@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20180916.0'
+__version__ = '20190424.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -162,14 +162,15 @@ def main(mode):
     """
     global log,config,remote_interface
 
-    txt = ("""   _____       ______ _  _____                   \n"""
-           """  |  __ \     |  ____(_)/ ____|                  \n"""
-           """  | |__) |   _| |__   _| (___  _   _ _ __   ___  \n"""
-           """  |  ___/ | | |  __| | |\___ \| | | | '_ \ / __| \n"""
-           """  | |   | |_| | |    | |____) | |_| | | | | (__  \n"""
-           """  |_|    \__, |_|    |_|_____/ \__, |_| |_|\___| \n"""
-           """          __/ |                 __/ |            \n"""
-           """         |___/                 |___/             \n""")
+    txt = '\n'.join(
+          (r"""   _____       ______ _  _____                   """,
+           r"""  |  __ \     |  ____(_)/ ____|                  """,
+           r"""  | |__) |   _| |__   _| (___  _   _ _ __   ___  """,
+           r"""  |  ___/ | | |  __| | |\___ \| | | | '_ \ / __| """,
+           r"""  | |   | |_| | |    | |____) | |_| | | | | (__  """,
+           r"""  |_|    \__, |_|    |_|_____/ \__, |_| |_|\___| """,
+           r"""          __/ |                 __/ |            """,
+           r"""         |___/                 |___/             """))
     
     log.line()
     log.add(txt,end='\n')
@@ -680,23 +681,37 @@ def determine_file_transfers(filesA,filesB):
         if res == 'A':
             tqA2B.append(path)
             action_queueB.append( {'backup':path} )
-        if res == 'B':
+        elif res == 'B':
             tqB2A.append(path)
             action_queueA.append( {'backup':path} )
-        if res == 'newer':
+        elif res == 'newer':
             if fileA['mtime']>=fileB['mtime']:
                 tqA2B.append(path)
                 action_queueB.append( {'backup':path} )
             else:
                 tqB2A.append(path)
                 action_queueA.append( {'backup':path} )
-        else:
+        elif res == 'newer_tag':
+            if fileA['mtime']>=fileB['mtime']:
+                tqA2B.append(path)
+                
+                newpath = path + '.' + config.nameB
+                action_queueB.append({'move':[path,newpath]})
+                tqB2A.append(newpath)
+            else:
+                tqB2A.append(path)
+                newpath = path + '.' + config.nameA
+                action_queueA.append({'move':[path,newpath]})
+                tqA2B.append(newpath)
+        elif res == 'both':
             action_queueA.append({'move':[path,path + '.' + config.nameA]})
             tqA2B.append(path + '.' + config.nameA)
 
             action_queueB.append({'move':[path,path + '.' + config.nameB]})
             tqB2A.append(path + '.' + config.nameB)
-
+        else:
+            raise ValueError('Unrecognized mod_conflict resolution')
+        
     # Unset all backup options
     if not config.backup:
         action_queueA = [a for a in action_queueA if 'backup' not in a]

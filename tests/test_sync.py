@@ -21,7 +21,7 @@ from pprint import pprint
 import pytest
 
 ## Specify whether to test remotely or locally...or both
-#remotes = [False]   # Just test locally
+# remotes = [False]   # Just test locally
 #remotes = ['python2','python3']
 remotes = [False,'python2','python3']
 # remotes = ['python2']
@@ -65,6 +65,7 @@ def test_nothing(remote): # This used to be test 01
 @pytest.mark.parametrize("remote", remotes)
 def test_mod_files(remote): # old test 02
     """ Different Files are modified both in A and B """
+    
     testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
             'test_dirs','mod_files')
     try:
@@ -102,9 +103,17 @@ def test_mod_files(remote): # old test 02
     # Finally
     assert len(testutil.compare_tree()) == 0
 
-@pytest.mark.parametrize("remote", remotes)
-def test_simple_conflict(remote): 
+
+mod_conflicts = ['A','B','newer','both','newer_tag']
+@pytest.mark.parametrize("remote,mod_conflict", list(itertools.product(remotes,mod_conflicts)))
+def test_simple_conflict(remote,mod_conflict): 
     """ Same Files are modified both in A and B """
+    
+    if mod_conflict is None:
+        for mc in mod_conflicts:
+            test_simple_conflict(remote,mc)
+        return
+    
     testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
             'test_dirs','simple_conflict')
     try:
@@ -116,26 +125,37 @@ def test_simple_conflict(remote):
 
 
     # Init
-    testutil.write('A/file1',text='test02.a')
+    testutil.write('A/file1',text='test')
 
     # copy over
     testutil.copy_tree()
 
     # Start it
     config = testutil.get_config(remote=remote)
+    config.mod_conflict = mod_conflict
     testutil.init(config)
 
     # Apply actions
-    testutil.write('A/file1',text='A',mode='a',time_adj=+15) # append it
-    testutil.write('B/file1',text='B',mode='a',time_adj=+25) # append it
+    testutil.write('A/file1',text='A',mode='a',time_adj=+100) # append it
+    testutil.write('B/file1',text='B',mode='a',time_adj=+500) # append it
 
     # Sync
     testutil.run(config)
     
     assert testutil.compare_tree() == []
-    
     files = set(os.path.basename(p) for p in testutil.tree(os.path.join(testpath,'A')))
-    assert set([u'file1.machineA', u'file1.machineB'])
+    
+    if mod_conflict == 'A':
+        assert files == set(['file1'])
+        assert testutil.read('A/file1') == 'test\nA'
+    if mod_conflict in ['B' or 'newer'] :
+        assert files == set(['file1'])
+        assert testutil.read('A/file1') == 'test\nB'
+    if mod_conflict == 'newer_tag':
+        assert files == set(['file1','file1.machineA'])
+        assert testutil.read('A/file1') == 'test\nB'
+    if mod_conflict == 'both':    
+        assert files == set([u'file1.machineA', u'file1.machineB'])
 
 @pytest.mark.parametrize("remote", remotes)
 def test_move_files(remote): # old test 03
@@ -1679,7 +1699,6 @@ def test_use_hashdb(remote): # This used to be test 01
 
 
 if __name__=='__main__':    
-    test_replace_deleted_with_new('python3')
     sys.exit()
 
 
