@@ -314,10 +314,6 @@ class file_list:
             if fnmatch_mult(filename,self.exclude_file):
                 continue
 
-            # Full dir
-            if fnmatch_mult('/'+dirname+'/',self.exclude_dirs_full):
-                continue
-
             # Full file
             fullfile = '/' + file['path']
             
@@ -326,11 +322,26 @@ class file_list:
                 
             if fnmatch_mult(fullfile,self.exclude_file_full):
                 continue
-
-            # dirname only
-            if fnmatch_mult(dirname,self.exclude_dirs):
+                
+            # Dirnames. Need to test the full build up
+            
+            #dname = []
+            
+            # dirname only -- test
+            dname_list = []
+            dflag = False
+            for dname in dirname.split('/'):
+                dname_list.append(dname)
+                if fnmatch_mult(dname + '/',self.exclude_dirs):
+                    dflag = True
+                    break
+                # Full dir
+                if fnmatch_mult('/'+'/'.join(dname_list)+'/',self.exclude_dirs_full):
+                    dflag = True
+                    break
+            if dflag:
                 continue
-
+                
             out_list.append(file)
         return out_list
 

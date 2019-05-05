@@ -22,6 +22,7 @@ import json
 import zlib
 import shlex
 import tempfile
+import datetime
 
 from io import open
 
@@ -30,6 +31,8 @@ if sys.version_info[0] > 2:
     unicode = str
 
 from . import utils
+
+REMOTES = ['rsync','rclone']
 
 class remote_interface_base(object):
     def __init__(self,config,log=None):
@@ -59,13 +62,9 @@ class remote_interface_base(object):
         * Force tells it to allow a file to be moved into another
 
         Notes:
-            * If a file is to be moved into another, it should not work unless
-              force is set. If force it set, it should backup the file as per
-              config.backup
+            * overwriting moves have already been removed
             * Delete should backup first if set config.backup == True
             * Backup should NOT happen if config.backup == False
-            * If a backup of the file already exists, it should append an integer
-              starting at 0
         """
         raise NotImplementedError()
     
@@ -273,9 +272,6 @@ class ssh_rsync(remote_interface_base):
         # Build the command
         cmd = 'rsync -azvi -hh ' \
             + '--keep-dirlinks --copy-dirlinks ' # make directory links behave like they were folders
-            
-        if config.rsync_checksum:
-            cmd += '--checksum '
         
         if not config.copy_symlinks_as_links:
             cmd += '--copy-links '    
@@ -492,7 +488,7 @@ class ssh_rsync(remote_interface_base):
 
             print('Successfully loading action queue of {:d} items'.format(len(queue)))
 
-            main.apply_action_queue(path,queue,force=force)
+            main.apply_action_queue(path,queue)
 
             sys.stdout.write('\n<<<<<<<END')
     def close(self):
@@ -503,8 +499,258 @@ class ssh_rsync(remote_interface_base):
                 os.remove(self.sm.replace('-S','').strip())
             except Exception as E:
                 pass#print('---{}'.format(E))
+
+
+class Rclone(remote_interface_base):
+    """
+    rclone based remote
+    """
+    def __init__(self,config,log=None):
+        self.config = config
+        if log is None:
+            log = utils.logger(silent=False,path=None)
+        self.log = log
+        self.flags = list(config.rclone_flags)
+        
+        # Backup paths
+        now = datetime.datetime.now().strftime('%Y-%m-%d_%H%M%S')
+        if self.config.rclone_backup_local:
+            self.backup_path = os.path.join(
+                    config.pathA,'.PyFiSync','backups_remote',now)
+        else:
+            self.backup_path = os.path.join(
+                    config.pathB,'.PyFiSync','backups',now)            
+        
+    def file_list(self,attributes,empty):
+        """
+        use rclone to produce a file list
+        """
+        from . import PFSwalk
+        attributes = set(attributes)
+        attributes.add('size')
+        attributes.add('mtime')
+        args = ['-q']
+        
+        # The order of some flags matter
+        args.append('lsjson')
+        args.extend(['--exclude','".PyFiSync/**"']) # other filters will come later
+        args.append('-R')
+        if any(attribute.startswith('hash.') for attribute in attributes):
+            args.append('--hash')
             
+        args.append(self.config.pathB)
+        list_out = self.call(args)
+        
+        raw_list = json.loads(list_out)
+        
+        files = []
+        for rawfile in raw_list:
+            if rawfile['IsDir']:
+                continue
+            file = dict()
+            file['path'] = rawfile['Path']
+            file['size'] = rawfile['Size']
+            file['mtime'] = utils.RFC3339_to_unix(rawfile['ModTime'])
+            for attr in attributes:
+                if not attr.startswith('hash.'):
+                    continue
+                name = attr.split('.')[-1]
+                try:
+                    file[attr] = rawfile['Hashes'][name]
+                except KeyError:
+                    sys.stderr.write('Could not get hash "{}". Make sure it is availible in the specified remote\n'.format(name))
+                    sys.exit(2)
+            files.append(file)
+        
+        # Use the machinery for rsync+ssh and local to filter
+        # since we want to be consistent
+        pfswalk = PFSwalk.file_list('',self.config,self.log)
+        files = pfswalk.filter_old_list(files)
+        
+        return files
+    
+    def apply_queue(self,queue,force=None):
+        """
+        Apply the queue
+        """
+        config,log = self.config,self.log
+        
+        log.add('\nApplying queue on remote')
+        didback = False
+        
+        for action_dict in queue:
+            action,path = list(action_dict.items())[0]
+            if action == 'move':
+                src = os.path.join(self.config.pathB,path[0])
+                dst = os.path.join(self.config.pathB,path[1])
+                self.call(['moveto',src,dst])
+                self.log.add('move: ' + utils.move_txt(path[0],path[1]))
+            elif action in ['backup','delete']:
+                src = os.path.join(self.config.pathB,path)
+                dst = os.path.join(self.backup_path,path)
+                if action == 'backup' and config.backup:
+                    self.call(['copyto',src,dst])
+                    log.add('backup: ' + path)
+                    didback = True
+                elif action=='delete' and config.backup:
+                    self.call(['moveto',src,dst])
+                    log.add('delete (w/ backup): ' + path)
+                    didback = True
+                elif action=='delete' and not config.backup:
+                    self.call(['delete',src])
+                    log.add('delete (w/o backup): ' + path)
+                else:
+                    pass # Do nothing for now
+        
+        # Cleanup local backup folder if not used
+        if self.config.rclone_backup_local:
+            try:
+                os.rmdir(self.backup_path)
+            except OSError:
+                pass
+        
+        if didback: 
+            if self.config.rclone_backup_local:
+                log.add('\nBackups saved LOCALLY in {}'.format(self.backup_path))
+            else:
+                log.add('\nBackups saved in {}'.format(self.backup_path))    
+        
+    def transfer(self,tqA2B,tqB2A):
+        config = self.config
+        log = self.log
+        
+        args = ['--ignore-times'] # We don't need this since we've already compared
+        # set up arguments
+        if config.copy_symlinks_as_links:
+            args.append('--links')
+            log.add('WARNING: rclone may or may-not work with `copy_symlinks_as_links`')
+        else:
+            args.append('--copy-links')
+        
+        log.add('(using rclone)')
+        
+        if len(tqA2B) > 0:
+
+            # A2B
+            tmp_file = '/tmp/tqA2B' + _randstr()
+
+            with open(tmp_file,'wt') as file:
+                file.write('\n'.join('/' + t for t in tqA2B)) # Must start with / to be full path for root
+            
+            newargs = args[:]
+            newargs.extend(['-v','--stats-one-line'])
+            newargs.extend(['copy','--include-from','{}'.format(tmp_file)])
+            newargs.extend([config.pathA,config.pathB])
+            
+            log.space=1
+            log.add('Running rclone A >>> B')
+            log.space = 4
+            out = self.call(newargs,echo=True)
+           
+            
+        else:
+            log.space=1
+            log.add('\nNo A >>> B transfers')
+        
+        log.add('')
+        
+        if len(tqB2A) > 0:
+
+            # B2A
+            tmp_file = '/tmp/tqB2A' + _randstr()
+
+            with open(tmp_file,'wt') as file:
+                file.write('\n'.join('/' + t for t in tqB2A)) # Must start with / to be full path for root
+            
+            newargs = args[:]
+            newargs.extend(['-v','--stats-one-line'])
+            newargs.extend(['copy','--include-from','{}'.format(tmp_file)])
+            newargs.extend([config.pathB,config.pathA])
+
+            log.space=1
+            log.add('Running rclone A <<< B ')
+            log.space = 4
+            out = self.call(newargs,echo=True)
+            #log.add(out)
+            
+        else:
+            log.space=1
+            log.add('\nNo A <<< B transfers')       
+        
+            
+    def call(self,args,echo=False):
+        """
+        Call rclone with the appropriate flags already set
+        """
+        if isinstance(args,(str,unicode)):
+            args = shlex.split(args)
+        args = list(args)
+        env = dict(os.environ)
+        if self.config.rclone_pw:
+            args.append('--ask-password=false')
+            env['RCLONE_CONFIG_PASS'] = self.config.rclone_pw
+        
+        cmd = list()
+        cmd.append(self.config.rclone_executable)
+        cmd.extend(self.flags)
+        cmd.extend(args)
+        
+        # Use two different methods depending on whether we need to stream
+        # the result. This is to hopefully prevent issues with large
+        # buffered responses
+        
+        if echo:
+            stdout = subprocess.PIPE
+        else:
+            stdout =  tempfile.NamedTemporaryFile(mode='wb',delete=False)
+        
+        proc = subprocess.Popen(cmd,
+                                stdout=stdout,
+                                stderr=subprocess.STDOUT,
+                                shell=False,
+                                env=env,
+                                cwd=self.config.pathA)
+        if echo:
+            out = []
+            with proc.stdout:
+                for line in iter(proc.stdout.readline, b''):
+                    line = utils.to_unicode(line)
+                    self.log.add(line.rstrip())
+                    out.append(line)
+        else:
+            proc.communicate() # Since we are not streaming the output
+            with open(stdout.name,'rb') as F:
+                out = utils.to_unicode(F.read())
+        proc.wait()
+        if proc.returncode >0:
+            self.log.add_err('rclone returned a non-zero exit code')
+        
+        return ''.join(out)
+        
+        
+def get_remote_interface(config=None,name=None):
+    if config is None == name is None:
+        raise ValueError('Must specify config OR name')
+    
+    if config is not None:
+        name = config.remote
+    
+    if name == 'rsync':
+        if len(getattr(config,'userhost','')) == 0:
+            return None
+        return ssh_rsync
+    elif name == 'rclone':
+        return Rclone
+    else:
+        raise ValueError()
+
+
 def _randstr(N=10):
     random.seed()
     return ''.join(random.choice('abcdefghijklmnopqrstuvwxyz') for _ in xrange(N))
+
+
+
+
+
 

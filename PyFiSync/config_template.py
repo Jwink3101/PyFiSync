@@ -9,6 +9,10 @@
 # Local Machine
 nameA = 'machineA'
 
+# <rsync>
+# These settings are the the ssh+rsync remote
+remote = 'rsync'
+
 # Remote Machine
 nameB = 'machineB'
 pathB = '/full/path/to/sync/dir'
@@ -28,14 +32,60 @@ persistant = True
 # and remote program 
 PyFiSync_path = ''      # /path/to/PyFiSync.py if not installed
 remote_program = ''     # python, python3, etc
+# </rsync>
+
+# <rclone>
+# These settings are specific to rclone. 
+remote = 'rclone'
+
+# Remote Machine name
+nameB = 'machineB'
+
+# Specify the path as you would a remote in rclone.
+pathB = 'myremote:bucket'
+
+# Set the executable. If rclone is installed, should just be the default
+rclone_executable = 'rclone'
+
+# Specify an rclone config password if one is set. Or specify `pwprompt()` to
+# have you promoted to enter one. This should not be used in a script. Specify
+# False to have it ignored. Be carefule specifying the password directly in text
+rclone_pw = False
+
+# Specify some flags to include in all rclone calls. Must be specified as a 
+# list/tuple/set. These can be used to tune transfers and improve performance. 
+# Some of them have been tested but not all.
+#
+# WARNING: There is no validation performed on the specified flags. That means 
+#          that you could specify some options tha
+#
+# Other Examples:
+#   `--transfers NN`: How many transfers should be done at once
+#   `--fast-list`: This should be used on all bucket (S3, B2, Swift) backends.
+#   `--config PATH`: Specify a different path to the config file. This is very 
+#   useful if you want to keep the config file somewhere else (including with 
+#   the files synced). Rclone is always evaluated in the root sync directory
+#   so the path can be relative to that.
+rclone_flags = ['--transfers', '32','--fast-list','--checkers','10']
+
+# Some remotes (e.g. Backblaze B2) do not support any server-side move/copy
+# opperations. As such, moving files is very inefficient as they must
+# be downloaded and then re-uploaded. For backups, this is a waste of effort
+# so instead, we can *just* backup via a local copy
+rclone_backup_local = False
+
+# </rclone>
 
 # File Settings:
 # move_attributes specify which attributes to determine a move or previous file.
-# Options 'path','ino','size','sha1','birthtime'
+# Options for local and rsync remote 
+#   'path','ino','size','sha1','birthtime','mtime'
+# Options for rclone remotes: 'path','size','mtime', and hashes as noted in the 
+#          readme
 #
+# <rsync>
 # Prev File Suggestions (to determine if a file is new or it's only mod time
 #   ['ino','path']
-#
 # Move Suggestions: (see readme for discussion)
 #     macOS: ['ino','birthtime']
 #     Linux: ['ino','size'] --OR-- ['ino'] (birthtime isn't avalible and inodes
@@ -46,10 +96,35 @@ prev_attributesA = ['ino','path']
 
 move_attributesB = ['ino','birthtime'] # ['ino','size'] --OR-- ['ino','sha1']
 prev_attributesB = ['ino','path']
+# </rsync>
+# <rclone>
+# Prev File Suggestions: 
+#   ['path']
+# Move Suggestions: Note with rclone, there is no advantage to moving an
+#                   also-modified file
+# move_attributesA
+#   ['ino','mtime']
+# move_attributesB
+#   If hashes are supported: ['hash.SHA-1'] or whatever hash
+#   If hashes are not supported: ['path'] # This essentially doesn't track moves
+#
+# MUST specify as a list
+move_attributesA = ['ino','mtime']
+prev_attributesA = ['ino','path']
+
+move_attributesB = ['path'] # --OR-- ['hash.SHA-1']
+prev_attributesB = ['path']
+# </rclone>
 
 ## Conflict Settings
 move_conflict = 'A'     # 'A' or 'B': When moves are conflicting
-mod_conflict = 'both'   # 'both','newer','A','B'
+
+# Modification date conflicts can be resolved as follows:
+# 'A','B' -- Always accept either A or B's copy regardless
+# 'both' -- Tag BOTH files to with the extension of the computer name
+# 'newer' -- Always keep the newer version
+# 'newer_tag' -- Keep the newer version un-named and tag the older
+mod_conflict = 'both'
 mod_resolution = 2.5    # (s) How much time difference is allowed between files
 
 # Symlinked directories are ALWAYS follow unless excluded. However, if 
@@ -63,7 +138,6 @@ copy_symlinks_as_links = True
 
 ## Other settings
 backup = True    # Backup before deletion or overwriting
-rsync_checksum = False # Uses --checksum
 
 # If a file is deleted but a new one is in the same place, do not treat it as 
 # a delete. Useful when programs overwrite rather than update files. Final 
@@ -75,6 +149,7 @@ check_new_on_delete = True
 # a file unless the path, size, and mtime has changed. This leaves an edge
 # case, though rare
 use_hash_db = True
+
 
 ## Exclusions.
 # * If an item ends in `/` it is a folder exclusion
@@ -92,12 +167,13 @@ use_hash_db = True
 excludes = ['.DS_Store','.git/','Thumbs.db']
 
 # The following can be used to perform certain tasks pre and post sync.
-# They are ONLY called on a sync/push/pull and they will ALWAYS be called
-# from the root of the syn direcotory (i.e. they start with 
+# Called the root of the syn direcotory (i.e. they start with 
 #       $ cd $PyFiSync_root
 # Example uses include cleanup, git push,pull, sync.
 pre_sync_bash = ''
 post_sync_bash = ''
+
+# <rsync>
 
 # Setting this to True will ignore any file that is currently tracked with git.
 # It will work regardless of where the git repo is located (e.g. below the root
@@ -107,7 +183,7 @@ post_sync_bash = ''
 #          for example) before syncing
 git_exclude = False
 
-
+# </rsync>
 
 
 

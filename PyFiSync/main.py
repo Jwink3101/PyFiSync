@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20180916.0'
+__version__ = '20190424.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -20,6 +20,12 @@ import re
 import copy
 import json
 
+if sys.version_info[0]<3:
+    range = xrange
+else:
+    unicode = str
+    raw_input = input
+
 # This will be fixed when it is installed
 self_path = os.path.dirname(__file__)
 if self_path not in sys.path:
@@ -32,22 +38,7 @@ ldtable = ldtable.ldtable
 
 from . import remote_interfaces
 
-if sys.version_info[0] > 2:
-    xrange = range
-
-# walk with scandir vs listdir
-if sys.version_info >= (3,5):
-    walk = os.walk
-    _scandir = True
-else:
-    try:
-        from scandir import walk
-        _scandir = True
-    except ImportError:
-        walk = os.walk
-        _scandir = False
-
-def init(path):
+def init(path,remote='rsync'):
     """
     Intiliaze PyFiSync
     """
@@ -64,7 +55,7 @@ def init(path):
         sys.exit(2)
 
     with open(cpath,'w') as F:
-        F.write(utils.configparser.config_example())
+        F.write(utils.configparser.config_example(remote=remote))
 
     txt  = '-='*30 + '\n'
     txt += '\n'
@@ -78,24 +69,25 @@ def init(path):
 def reset_tracking(backup=True,empty='reset',set_time=False):
     """ Reset the tracking"""
     global log,config,remote_interface
+
     remote = True
-    if len(config.userhost) == 0:
+    if len(getattr(config,'userhost','')) == 0 and config.remote =='rsync':
         log.add('(local)  B: {:s}'.format(config.pathB))
         remote = False
     else:
-        log.add('(remote) B: {:s}{:s}'.format(config.userhost,config.pathB))
+        log.add('(remote) B: {:s}{:s}'.format(config.remote,config.pathB))
 
     log.add('Parsing files for A')
     
     sha1A = 'sha1' in config.prev_attributesA + config.move_attributesA
     sha1B = 'sha1' in config.move_attributesB + config.prev_attributesB
 
-
     PFSwalker = PFSwalk.file_list(config.pathA,config,log,
                                   sha1=sha1A,empty=empty,
                                   use_hash_db=config.use_hash_db)
+    
     if remote:
-        # Multithread it
+        # Walk local in background thread
         loc_walk_thread = utils.ReturnThread(target=PFSwalker.files)
         loc_walk_thread.daemon = True
         loc_walk_thread.start()
@@ -103,16 +95,8 @@ def reset_tracking(backup=True,empty='reset',set_time=False):
         log.add('  Parsing files for B (remote)')
         log.prepend = '   '
         
-        rem_walk_thread = utils.ReturnThread(
-                            target=remote_interface.file_list,
-                            args=(config.move_attributesB + config.prev_attributesB,),
-                            kwargs=dict(empty=empty)
-                            )
-        rem_walk_thread.daemon = True
-        rem_walk_thread.start()
-        
+        filesB = remote_interface.file_list(config.move_attributesB + config.prev_attributesB,empty=empty)
         filesA = loc_walk_thread.join()
-        filesB = rem_walk_thread.join()
         
         if filesB is None:
             sys.stderr.write('Error on remote call. See logged warnings\n')
@@ -178,14 +162,15 @@ def main(mode):
     """
     global log,config,remote_interface
 
-    txt = ("""   _____       ______ _  _____                   \n"""
-           """  |  __ \     |  ____(_)/ ____|                  \n"""
-           """  | |__) |   _| |__   _| (___  _   _ _ __   ___  \n"""
-           """  |  ___/ | | |  __| | |\___ \| | | | '_ \ / __| \n"""
-           """  | |   | |_| | |    | |____) | |_| | | | | (__  \n"""
-           """  |_|    \__, |_|    |_|_____/ \__, |_| |_|\___| \n"""
-           """          __/ |                 __/ |            \n"""
-           """         |___/                 |___/             \n""")
+    txt = '\n'.join(
+          (r"""   _____       ______ _  _____                   """,
+           r"""  |  __ \     |  ____(_)/ ____|                  """,
+           r"""  | |__) |   _| |__   _| (___  _   _ _ __   ___  """,
+           r"""  |  ___/ | | |  __| | |\___ \| | | | '_ \ / __| """,
+           r"""  | |   | |_| | |    | |____) | |_| | | | | (__  """,
+           r"""  |_|    \__, |_|    |_|_____/ \__, |_| |_|\___| """,
+           r"""          __/ |                 __/ |            """,
+           r"""         |___/                 |___/             """))
     
     log.line()
     log.add(txt,end='\n')
@@ -207,11 +192,11 @@ def main(mode):
     log.add(' (local)  A: {:s}'.format(config.pathA))
 
     remote = True
-    if len(config.userhost) == 0:
-        log.add(' (local)  B: {:s}'.format(config.pathB))
+    if remote_interface is None and len(config.userhost) == 0:
+        log.add('(local)  B: {:s}'.format(config.pathB))
         remote = False
     else:
-        log.add(' (remote) B: {:s}{:s}'.format(config.userhost,config.pathB))
+        log.add('(remote) B: {:s}{:s}'.format(config.remote,config.pathB))
 
     run_bash(pre=True)
 
@@ -234,17 +219,9 @@ def main(mode):
         
         log.add('  Parsing files for B (remote)')
         log.prepend = '   '
-        
-        rem_walk_thread = utils.ReturnThread(
-                            target=remote_interface.file_list,
-                            args=(config.move_attributesB + config.prev_attributesB,),
-                            kwargs=dict(empty='store')
-                            )
-        rem_walk_thread.daemon = True
-        rem_walk_thread.start()
-        
+                
+        filesB = remote_interface.file_list(config.move_attributesB + config.prev_attributesB,empty='store')        
         filesA = loc_walk_thread.join()
-        filesB = rem_walk_thread.join()        
     
         if filesB is None:
             sys.stderr.write('Error on remote call. See logged warnings\n')
@@ -274,49 +251,6 @@ def main(mode):
 
     filesA_old = PFSwalker.filter_old_list(filesA_old)
     filesB_old = PFSwalker.filter_old_list(filesB_old)
-
-
-    ## Handle push and pull modes
-    
-    txt = None
-    if mode in ['push','push_all']:
-        config._pushpull=True
-        txt = 'push mode: setting as no changes in B.'
-        if mode == 'push_all':
-             txt += ' --all mode. Set all A files as new/modified'
-        # Just make the new files same as the old ones so it looks like nothing
-        # has changed and the mtimes are still correct
-        filesB = copy.copy(filesB_old)
-       
-        if mode == 'push_all':  # Make all A files modified
-            config.mod_conflict = 'newer'
-            now = time.time()
-            for fileA in filesA:
-                fileA['mtime'] = now
-
-    if mode in ['pull','pull_all']:
-        config._pushpull=True
-        txt = 'pull mode: setting as no changes in A.'
-        if mode == 'pull_all':
-             txt += ' --all mode. Set all B files as new/modified'
-        
-        # Just make the new files same as the old ones so it looks like nothing
-        # has changed and the mtimes are still correct
-        filesA = copy.copy(filesA_old)
-
-        if mode == 'pull_all': # Make all B files modified
-            config.mod_conflict = 'newer'
-            
-            now = time.time()
-            for fileB in filesB:
-                fileB['mtime'] = now
-
-    force_mv = mode != 'sync' 
-    
-    if txt is not None:
-        log.line()
-        log.add('Appying modifications to lists for push/pull modes')
-        log.add('   ' + txt + '\n')
     
     log.line()
     log.add('Creating DB objects')
@@ -329,7 +263,7 @@ def main(mode):
     log.line()
     log.add('Using old file lists to determine moves and deletions\n')
     log.prepend = '  '
-    
+
     file_track(filesA_old,filesA,config.prev_attributesA,config.move_attributesA)
     file_track(filesB_old,filesB,config.prev_attributesB,config.move_attributesB)
     
@@ -346,8 +280,8 @@ def main(mode):
 
     ## Apply them theoretically so as to save a transfer. Everything will
     #  be done in order later
-    apply_move_queues_theoretical(filesA,move_queueA,AB='A',force=force_mv)
-    apply_move_queues_theoretical(filesB,move_queueB,AB='B',force=force_mv)
+    move_queueA = apply_move_queues_theoretical(filesA,move_queueA,AB='A')
+    move_queueB = apply_move_queues_theoretical(filesB,move_queueB,AB='B')
 
 
     ## Determine transfers based on modified or new
@@ -365,18 +299,12 @@ def main(mode):
     log.add('Applying queues')
     log.space = 2
     
-    apply_action_queue(config.pathA,move_queueA + action_queueA,force=force_mv)
+    apply_action_queue(config.pathA,move_queueA + action_queueA)
 
     if remote:
-        remote_interface.apply_queue(move_queueB + action_queueB,force=force_mv)
+        remote_interface.apply_queue(move_queueB + action_queueB)
     else:
-        apply_action_queue(config.pathB,move_queueB + action_queueB,force=force_mv)
-
-    # Clear anything that came up for push/pull modes
-    if mode in ['push','push_all']:
-        tqB2A = []
-    if mode in ['pull','pull_all']:
-        tqA2B = []
+        apply_action_queue(config.pathB,move_queueB + action_queueB)
         
     # We will use the rsync (via the ssh_rsync) interface. 
     if not remote:
@@ -460,7 +388,6 @@ def file_track(files_old,files_new,prev_attributes,move_attributes):
     # Reindex the DBs
     files_old.reindex()
     files_new.reindex()
-
 
 def compare_queue_moves(filesA,filesB,filesA_old,filesB_old):
     """
@@ -594,40 +521,40 @@ def compare_queue_moves(filesA,filesB,filesA_old,filesB_old):
     # and we don't care about them anymore
     return queueA,queueB
 
-def apply_move_queues_theoretical(files,queue,AB='AB',force=False,):
+def apply_move_queues_theoretical(files,queue,AB='AB'):
     """
     Apply the move queues to the file lists as if they were performed
+    to make sure they do not overwrite and to reset the names
     """
     global log
 
-    txt  = 'CONFLICT: Move scheduled in {AB:s}\n'
+    txt  = 'CONFLICT: Move scheduled over another\n'
     txt += '           {src:s} --> {dest:s}\n'
-    txt += '          but destination file already exists. Will not apply\n'
-    # Ignore ^^^. It will be printed later when the moves actually take place
-
+    txt += '          {result:s}'
+    
+    outqueue = []
     for action_dict in queue:
         action,path = list(action_dict.items())[0]
         if action == 'move':
             src,dest = path
-
-            if ( {'path':dest} not in files ) or force:
-                files.update({'path':dest},{'path':src})
-                continue # Moved
-            # If you can't do the move, you need to update BOTH files that there is a conflict of sorts
-            files.update({'newmod':True},{'path':src})
-            files.update({'newmod':True},{'path':dest})
-        if action == 'delete':
-            pass # These were done above
-        # Ignore backups
-
+            if ( {'path':dest} not in files ):
+                files.update({'path':dest},{'path':src}) # Update the paths to consider114
+            else:    
+                # If you can't do the move, you need to update BOTH files that there is a conflict of sorts
+                files.update({'newmod':True},{'path':src})
+                files.update({'newmod':True},{'path':dest})
+                log.add(txt.format(src=src,dest=dest,result='Skipping'))
+                continue # so it doesn't get added to the queue
+        
+        outqueue.append(action_dict)
+        
+    return outqueue
 
 def determine_file_transfers(filesA,filesB):
     """
     Determine transfers
 
     Note: we only look at new or modified files as per tracking
-
-    Use the push or pull (and/or reset) modes to reset these lists
     """
     global log
 
@@ -637,7 +564,7 @@ def determine_file_transfers(filesA,filesB):
              '              B: {mtimeB:s}\n'
              "          resolving with '{res:s}' as per config\n")
 
-    txt2  = ('WARNING: File deleted on {AB} but modified on {BA}. Transfer\n'
+    txt2  = ('WARNING: Untracked file on {AB} and exists on {BA}. Transfer\n'
              '          File: {path:s}\n')
 
 
@@ -658,12 +585,12 @@ def determine_file_transfers(filesA,filesB):
         # Check if the other path doesn't exist. Means file was new or
         # deleted on one and modified on the other. Transfer to missing side
         if fileA is None:
-            if not fileB['new']: # A was deleted
+            if not fileB['new']: # Somehow missing on A. Maybe deleted?
                 log.add(txt2.format(AB='A',BA='B',path=path))
             tqB2A.append(path)
             continue
         if fileB is None:
-            if not fileA['new']: # B was deleted
+            if not fileA['new']: # ...
                 log.add(txt2.format(AB='B',BA='A',path=path))
             tqA2B.append(path)
             continue
@@ -698,23 +625,37 @@ def determine_file_transfers(filesA,filesB):
         if res == 'A':
             tqA2B.append(path)
             action_queueB.append( {'backup':path} )
-        if res == 'B':
+        elif res == 'B':
             tqB2A.append(path)
             action_queueA.append( {'backup':path} )
-        if res == 'newer':
+        elif res == 'newer':
             if fileA['mtime']>=fileB['mtime']:
                 tqA2B.append(path)
                 action_queueB.append( {'backup':path} )
             else:
                 tqB2A.append(path)
                 action_queueA.append( {'backup':path} )
-        else:
+        elif res == 'newer_tag':
+            if fileA['mtime']>=fileB['mtime']:
+                tqA2B.append(path)
+                
+                newpath = path + '.' + config.nameB
+                action_queueB.append({'move':[path,newpath]})
+                tqB2A.append(newpath)
+            else:
+                tqB2A.append(path)
+                newpath = path + '.' + config.nameA
+                action_queueA.append({'move':[path,newpath]})
+                tqA2B.append(newpath)
+        elif res == 'both':
             action_queueA.append({'move':[path,path + '.' + config.nameA]})
             tqA2B.append(path + '.' + config.nameA)
 
             action_queueB.append({'move':[path,path + '.' + config.nameB]})
             tqB2A.append(path + '.' + config.nameB)
-
+        else:
+            raise ValueError('Unrecognized mod_conflict resolution')
+        
     # Unset all backup options
     if not config.backup:
         action_queueA = [a for a in action_queueA if 'backup' not in a]
@@ -722,32 +663,23 @@ def determine_file_transfers(filesA,filesB):
 
     return action_queueA,action_queueB,tqA2B,tqB2A
 
-def apply_action_queue(dirpath,queue,force=False):
+def apply_action_queue(dirpath,queue):
     """
     * queue is the action queue that takes the following form
         * {'backup':[file_path]}  # Make a copy to the backup
         * {'move': [src,dest]}    # Move the file
         * {'delete': [file_path]} # Move the file into the backup. Essentially a backup
-    * Force tells it to allow a file to be moved into another
     
     Notes:
-        * If a file is to be moved into another, it should not work unless 
-          force is set. If force it set, it should backup the file as per
-          config.backup
+        * conflciting/overwriting moves have already been removed at this point
         * Delete should backup first if set config.backup == True
         * Backup should NOT happen if config.backup == False
-        * If a backup of the file already exists, it should append an integer
-          starting at 0
     """
 
     log.space=2
     log.add('Applying queues on: {:s}'.format(dirpath))
     log.space = 4
     
-    txt  = 'CONFLICT: Move scheduled over another\n'
-    txt += '           {src:s} --> {dest:s}\n'
-    txt += '          {result:s}'
-
 
     backup_path = os.path.join(dirpath,'.PyFiSync','backups',
         datetime.datetime.now().strftime('%Y-%m-%d_%H%M%S'))
@@ -765,26 +697,6 @@ def apply_action_queue(dirpath,queue,force=False):
             dest = os.path.join(dirpath,path[1])
             dest_dir = os.path.split(dest)[0]
             
-            if os.path.exists(dest):
-                if force:
-                    if config.backup:
-                        log.add(txt.format(path=dirpath,src=path[0],dest=path[1],
-                            result='Backing up and applying'))
-
-                        dest_old = os.path.join(backup_path,path[1])
-                        dest_dir_old = os.path.split(dest_old)[0]
-                        try:
-                            os.makedirs(dest_dir_old)
-                        except OSError:
-                            pass
-                        shutil.move(dest,dest_old)
-                    else:
-                        log.add(txt.format(path=dirpath,src=path[0],dest=path[1],
-                            result='Applying (w/o backup)'))
-
-                else:
-                    log.add(txt.format(path=dirpath,src=path[0],dest=path[1],result='Skipping'))
-                    continue
             try:
                 os.makedirs(dest_dir)
             except OSError:
@@ -804,17 +716,7 @@ def apply_action_queue(dirpath,queue,force=False):
             except OSError:
                 pass
 
-            # Make sure the backup doesn't already exist from a prev action
-            i = 0
-            while os.path.exists(dest):
-                dest = os.path.join(backup_path,path) + '.' + str(i)
-                i += 1
-
-            if not os.path.exists(src) and getattr(config,'_pushpull',True):
-                # This is an edge case in push/pull modes where a file may have
-                # been moved but is not tracked. Do not do anything
-                log.add("WARNING: couldn't find {src} for action in push/pull mode".format(src=src))
-            elif action == 'backup' and config.backup:
+            if action == 'backup' and config.backup:
                 shutil.copy2(src,dest)
                 log.add('backup: ' + path)
             elif action=='delete' and config.backup:
@@ -888,48 +790,6 @@ def run_bash(pre):
 def _unix_time(val):
     return datetime.datetime.fromtimestamp(float(val)).strftime('%Y-%m-%d %H:%M:%S')
 
-
-
-usage="""
-PyFiSync -- Python based file synchronizer with inteligent move tracking and
-              conflict resolution
-
-Usage:
-
-    PyFiSync MODE <options> PATH
-
-Or, if *just* called as: PyFiSync , it will assume `PyFiSync sync .`
-
-
-Modes and Options
-    sync -- Perform sync on the path
-
-        -h,--help   : Print this help
-        --no-backup : Override config and do not back up files
-        -s,--silent : Do not print the log to the screen
-
-    push/pull -- push or pull all changes with no conflict resolution
-
-        --all       : Push every file even if unmodified. Note, will cause
-                      backups of every file. Consider --no-backup
-                      This is useful if reset files.
-        -h,--help   : Print this help
-        --no-backup : Override config and do not back up files
-        -s,--silent : Do not print the log to the screen
-
-    init -- Initialize PyFiSync in the specified directory
-
-    reset -- Completely reset file tracking. No changes pre-reset will be
-             propgrated until you do a `push/pull --all`
-
-        -h,--help   : Print this help
-        --force     : Do not prompt for confirmation
-
-        Note that if the files already exist, they will be backed up
-
-    help -- Print this help
-"""
-
 desc = """\
 Python (+ rsync) based intelligent file sync with automatic backups and file move/delete tracking.
 """
@@ -957,9 +817,10 @@ def cli(argv=None):
     parser_all_opts.add_argument('path',default='.',nargs='?',
         help="['%(default)s'] path to the PyFiSync directory")
     
-    subparsers = parser_main.add_subparsers(dest='mode',title='modes',help="[sync]. Enter `{mode} -h` for individual help")
+    subparsers = parser_main.add_subparsers(dest='mode',title='modes',
+        help="[sync]. Enter `{mode} -h` for individual help")
     
-    ## Sync, Push,Pull
+    ## Sync
     # Options for all
     parser_syncops = argparse.ArgumentParser(add_help=False) # Notice this is NOT a subparser of parser_main
     
@@ -969,28 +830,10 @@ def cli(argv=None):
         action='store_true',
         help='Override config and do not back up files')
     
-    # options for push and pull
-    parser_pushpull = argparse.ArgumentParser(add_help=False) # Notice this is NOT a subparser of parser_main
-    parser_pushpull.add_argument('--all',
-        action='store_true',
-        help=('Push/Pull every file even if unmodified. Note, will cause '
-              'backups of every file. Consider --no-backup. '
-              'This is useful if reset files.'))
-    
     # Make the parser with the right combination of options
     parser_sync = subparsers.add_parser('sync',
         help='Synchronize to the server',
         parents=[parser_syncops,parser_all_opts],
-        formatter_class=utils.RawSortingHelpFormatter)
-    
-    parser_push = subparsers.add_parser('push',
-        help='Push to the server',
-        parents=[parser_pushpull,parser_syncops,parser_all_opts],
-        formatter_class=utils.RawSortingHelpFormatter)
-    
-    parser_pull = subparsers.add_parser('pull',
-        help='Pull from the server',
-        parents=[parser_syncops,parser_pushpull,parser_all_opts],
         formatter_class=utils.RawSortingHelpFormatter)
     
     ## Init
@@ -998,6 +841,10 @@ def cli(argv=None):
         help='Initialize in the specified directory',
         parents=[parser_all_opts],
         formatter_class=utils.RawSortingHelpFormatter)
+    parser_init.add_argument('--remote',
+        choices=remote_interfaces.REMOTES,
+        default='rsync',
+        help='[%(default)s] Specify the remote type of those supported')
     
     ## Reset
     parser_reset = subparsers.add_parser('reset',
@@ -1025,8 +872,11 @@ def cli(argv=None):
         argv[0] = '--help'
     if argv[0] not in modes + main_actions + ['_api']:
         argv.insert(0,'sync')
-    
     if argv[0] == '_api':
+        # NOTE: this is hard coded as ssh_rsync since rclone doesn't need it
+        #       and this was easier. But this should be fixed if more remotes
+        #       are ever added and they need to communicate
+
         remote_interfaces.ssh_rsync.cli(argv[1:])
         sys.exit()
     
@@ -1036,21 +886,21 @@ def cli(argv=None):
 
     if args.mode == 'init':
         log = utils.logger(path=args.path,silent=False)
-        init(args.path)
+        init(args.path,remote=args.remote)
 
-    elif args.mode in ['push','pull','sync']:
+    elif args.mode in ['sync']:
         path = search_up_PyFiSync(args.path)
         
         config = utils.configparser(sync_dir=path)
         log = utils.logger(path=path,silent=False)
         
-        if len(config.userhost) != 0:
-            remote_interface = remote_interfaces.ssh_rsync(config,log)
-        else:
-            remote_interface = None
+        _remote = remote_interfaces.get_remote_interface(config)
         
-        if args.mode != 'sync' and args.all:
-            args.mode += '_all'
+        if _remote is None:
+            remote_interface = None
+        else:
+            remote_interface = _remote(config,log)
+            
         
         if args.no_backup:
             config.backup = False
@@ -1070,10 +920,11 @@ def cli(argv=None):
         config = utils.configparser(sync_dir=path)
         log = utils.logger(path=path,silent=False)
 
-        if len(config.userhost) != 0:
-            remote_interface = remote_interfaces.ssh_rsync(config,log)
-        else:
+        _remote = remote_interfaces.get_remote_interface(config)
+        if _remote is None:
             remote_interface = None
+        else:
+            remote_interface = _remote(config,log)
         
         if not args.force:
             print('Are you sure you want to reset? (Y/[N]): ')

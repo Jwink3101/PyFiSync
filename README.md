@@ -24,6 +24,8 @@ By default, any time a file is to be overwritten or modified, it is backed up on
 
 Moves and deletions are tracked via attributes described below.
 
+Move attributed are used to track if a file has moved while the `prev_attributes` are used to determine if a file is the same as before
+
 Note: On HFS+ (and maybe APFS?), macOS's file system, inodes are not reused quickly. On ext3 (Linux) they are recycled rapidly leading to issues when files are deleted and new ones are made. Do not use inodes alone on these systems
 
 Available attributes:
@@ -78,11 +80,11 @@ Then modify the config file. All options are commented.
 
     $ PyFiSync reset --force path/to/sync_dir
 
-Then sync, push, or pull by choosing one of the following commands:
+Then sync. This will essentially create a union of the two sides
 
     $ PyFiSync sync path/to/syncdir
-    $ PyFiSync push --all --no-backup path/to/syncdir
-    $ PyFiSync pull --all --no-backup path/to/syncdir
+
+Essentially this will be a union of the two sides
     
 (The `--all` is optional but suggested for the first sync. If using `--all`, it is *highly* suggested to add `--no-backup` since everything would be copied)
 
@@ -152,26 +154,6 @@ There is the option to also add some bash scripts pre and post sync. These may b
 
 They are ALWAYS executed from the sync root (a `cd /path/to/syncroot` is inserted above).
 
-## Primary Modes
-
-### Sync
-
-This is the primary mode. It is assumed that if you invoke PyFiSync without any arguments, it is the same as `sync .`.
-
-Synchronizes to the host and updates the file DBs
-
-### Push and Pull mode
-
-A push or a pull follows the same logic as a sync except they do not do any kind of conflict resolution and diminished backups.
-
-File backups *do* occur in a push or pull but a file can move into another and it will *not* backup.
-
-Furthermore, because `--all` mode tells PyFiSync that *everything* has been modified, it is **highly** suggested to use `--no-backup` with `--all`. Since rsync is used for the transfer, the `--all` mode is otherwise still pretty fast.
-
-
-General Warning: As with `rsync`, push and pull modes do not guarantee parity of both sides. And there is no `--delete` mode. If push/pull are part of your regular workflow, consider using `rsync` directly.
-
-
 ## Running Tests
 
 To run the test, in bash, do:
@@ -190,7 +172,6 @@ The test suite is **extremely** extensive as to cover tons of different and diff
 
 A few notable limitations are as follows:
 
-* Moves are compared and conflicts are accounted for but the code will *never* move a file into another in *sync* mode. If not in sync mode, it will back up before the move (by default)
 * Symlinks are followed (optionally) but if the file they are linking to is also in the sync folder, it may confuse the move tracking
 * File move tracking
     * A file moved with a new name that is excluded will propagate as deleted. This is expected since the code no longer has a way to "see" the file on the one side.
@@ -198,21 +179,6 @@ A few notable limitations are as follows:
     
 There is also a potential issue with the test suite. In order to ensure that the files are noted as changed (since they are all modified so quickly), the times are often adjusted via some random amounts. There is a *small* chance some tests could fail due to a small number not changing. Running the tests again should pass.
 
-
-## Other Backends
-
-Right now, the only backend that is supported is SSH + rsync. This was coded to be somewhat modular that another backend could be easily supported.
-
-A backend needs to be able to:
-
-* List files and attributes
-* Processes moves, backups, deletions
-* Upload and download files (but **needs** to maintain the `mtime`)
-    * Potentially, this may be done by adding a separate metadata file but this has not yet been considered.
-
-This means that something like S3 or B2 could be incorporated (though B2 does not support moves).
-
-See the `remote_interfaces.py` and the base class `remote_interface_base` for details.
 
 ## Other Questions
 

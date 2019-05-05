@@ -6,6 +6,13 @@ Well, it may not be! I have only dabbled in Unison. Unison seems like a great to
 
 Plus, this was a great learning tool for python. Developing this was a lot of fun. And I am also really happy with [ldtable](https://github.com/Jwink3101/ldtable) which I developed in concert with this.
 
+## Are files encrypted?
+
+Using the default (and currently only) mode, the files are encrypted **in transit** via SSH. However, since this is not inherently a server-client model, the files are unencrypted at rest.
+
+I suggest [Cryptomator](https://cryptomator.org/) for encrypted files as it is cross-platform and doesn't introduce much overhead and is efficient. It encrypts on a file-by-file basis (with obfuscated names) so changing a file will only require syncing that file (and some ancillary data). Speedups from rsync will not be realized.
+
+If using only macOS, encrypted disk images can also work well. If using encrypted disk images, I recommend using *sparse* disk image. Sparse images create bands (16mb if I recall correctly) so, while not file-by-file, they are more efficient but less than purely file-by-file. Regular encrypted disk images will, of course, work but *any* change will require syncing the entire thing. These are not recommended.
 
 ## I set up SSH keys. Why is it asking me for my key password each time?
 
