@@ -14,6 +14,8 @@ I suggest [Cryptomator](https://cryptomator.org/) for encrypted files as it is c
 
 If using only macOS, encrypted disk images can also work well. If using encrypted disk images, I recommend using *sparse* disk image. Sparse images create bands (16mb if I recall correctly) so, while not file-by-file, they are more efficient but less than purely file-by-file. Regular encrypted disk images will, of course, work but *any* change will require syncing the entire thing. These are not recommended.
 
+Also, if using the rclone remote, you can use a crypt remote. Details are in the [rclone_b2][rclone_b2.md] guide.
+
 ## I set up SSH keys. Why is it asking me for my key password each time?
 
 If you set up SSH keys with a password, you still need to unlock the key. If you're in an interactive session (e.g. directly in macOS terminal or the same for Linux), it does this for you (usually). If you're also SSHed in, you may need to start the `ssh-agent`:
