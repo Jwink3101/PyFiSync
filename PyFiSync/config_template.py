@@ -173,8 +173,6 @@ excludes = ['.DS_Store','.git/','Thumbs.db']
 pre_sync_bash = ''
 post_sync_bash = ''
 
-# <rsync>
-
 # Setting this to True will ignore any file that is currently tracked with git.
 # It will work regardless of where the git repo is located (e.g. below the root
 # of the PyFiSync folder).
@@ -182,8 +180,6 @@ post_sync_bash = ''
 #          sides. Make sure the git repos are in sync (via pre_sync_bash
 #          for example) before syncing
 git_exclude = False
-
-# </rsync>
 
 
 
