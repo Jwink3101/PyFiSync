@@ -194,13 +194,14 @@ class Testutils(object):
         # so we do not need to modify the last_run
         
 
-    def run(self,config,mode='sync',silent=False):
+    def run(self,config,mode='sync',silent=False,flags=tuple()):
         pathA = os.path.join(self.testpath,'A')
         pathB = os.path.join(self.testpath,'B')
 
         self.write_config(config)
         if mode == 'sync':
-            PyFiSync.cli(['sync',pathA])
+            cmd = ['sync'] + list(flags) + [pathA]
+            PyFiSync.cli(cmd)
         
     
 def randstr(N=10):

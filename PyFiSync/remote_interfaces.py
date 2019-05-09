@@ -142,7 +142,6 @@ class ssh_rsync(remote_interface_base):
         remote_config['empty'] = empty
         remote_config['attributes'] = list(set(attributes))
         remote_config['copy_symlinks_as_links'] = config.copy_symlinks_as_links
-        remote_config['git_exclude'] = config.git_exclude
         remote_config['use_hash_db'] = config.use_hash_db
         
         log.add('Calling for remote file list')
@@ -421,7 +420,6 @@ class ssh_rsync(remote_interface_base):
             sha1 = 'sha1' in remote_config['attributes']
             empty = remote_config['empty']
             config.copy_symlinks_as_links = remote_config['copy_symlinks_as_links']
-            config.git_exclude = remote_config['git_exclude']
             config.excludes = list(set(config.excludes + remote_config['excludes']))
             config.use_hash_db = remote_config['use_hash_db']
             
@@ -521,10 +519,20 @@ class Rclone(remote_interface_base):
             self.backup_path = os.path.join(
                     config.pathB,'.PyFiSync','backups',now)            
         
+        self._debug = False
+        self.rc_version = self.call(['--version'])
+        
+        
     def file_list(self,attributes,empty):
         """
         use rclone to produce a file list
         """
+        # This is a hack to only show it the first time
+        if self.rc_version:
+            self.log.add('rclone version:\n')
+            self.log.add(self.rc_version)
+            self.rc_version = False
+        
         from . import PFSwalk
         attributes = set(attributes)
         attributes.add('size')
@@ -558,8 +566,12 @@ class Rclone(remote_interface_base):
                 try:
                     file[attr] = rawfile['Hashes'][name]
                 except KeyError:
-                    sys.stderr.write('Could not get hash "{}". Make sure it is availible in the specified remote\n'.format(name))
-                    sys.exit(2)
+                    self.log.add_err('Could not get hash "{}". Make sure it is availible in the specified remote'.format(name))
+                    if self.config.imitate_missing_hash:    
+                        self.log.add_err('Imitateing hash')
+                        file[attr] = utils.imitate_hash(rawfile)
+                    else:
+                        sys.exit(2)
             files.append(file)
         
         # Use the machinery for rsync+ssh and local to filter
@@ -701,12 +713,13 @@ class Rclone(remote_interface_base):
         
         if echo:
             stdout = subprocess.PIPE
+            self.log.add('rclone\n  $ ' + ' '.join(cmd) + '\n')
         else:
             stdout =  tempfile.NamedTemporaryFile(mode='wb',delete=False)
         
         proc = subprocess.Popen(cmd,
                                 stdout=stdout,
-                                stderr=subprocess.STDOUT,
+                                stderr=subprocess.STDOUT if not self._debug else subprocess.PIPE,
                                 shell=False,
                                 env=env,
                                 cwd=self.config.pathA)
@@ -717,13 +730,30 @@ class Rclone(remote_interface_base):
                     line = utils.to_unicode(line)
                     self.log.add(line.rstrip())
                     out.append(line)
+            if self._debug:
+                err = proc.stderr.read()
         else:
-            proc.communicate() # Since we are not streaming the output
+            _,err = proc.communicate() # Since we are not streaming the output
             with open(stdout.name,'rb') as F:
                 out = utils.to_unicode(F.read())
         proc.wait()
         if proc.returncode >0:
             self.log.add_err('rclone returned a non-zero exit code')
+        
+        if self._debug:
+            txt = ['DEBUG MODE','']
+            txt.append('rclone call')
+            txt.append(' '.join(cmd))
+            txt.append(' ')
+            txt.append('OUT:')
+            txt.append(''.join(out))
+            txt.append('ERR:')
+            txt.append(utils.to_unicode(err))
+            txt = '\n'.join(txt)
+            txt = [''] + txt.split('\n')
+            txt = '\nDEBUG: '.join(txt)
+            self.log.add_err(txt)
+        
         
         return ''.join(out)
         

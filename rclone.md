@@ -1,5 +1,7 @@
 # Rclone
 
+(beta)
+
 [rclone](https://rclone.org/) is now a supported backend with PyFiSync but there are some important details.
 
 First and foremost, **this is a beta feature**. Some aspects have been formally and informally tested but there are a lot more edge cases to consider. And, a fair amount options that may or may not be needed based on settings
@@ -36,7 +38,7 @@ These are to be specified as a list!
 
 ## Symlinks
 
-The `copy_symlinks_as_links` flag still works and sets the Rclone option but certain remotes also require you to set . For example... REPLACE
+The `copy_symlinks_as_links` setting does not work for some remotes. rclone claims to have a workaround but it is inconsistent. See [this github issue](https://github.com/ncw/rclone/issues/3163). May be fixed in the future
 
 ## Attributes
 
@@ -61,7 +63,15 @@ Many of the sync tests are also tested with rclone. Some however are not because
 
 See known issues for a discussion of situations (and failed tests) because rclone cannot handle it.
 
-### Custom
+## Other situations
+
+### Missing Hashes
+
+In general, a remote supports a certain type of hash and that can be specified. For example B2 supports SHA-1 (attribute `hash.SHA-1`) and S3 supports MD5 (attribute `hash.MD5`). Some remotes (e.g. crypt) do not support any hashes.
+
+According to the [rclone docs](https://rclone.org/s3/) not all files have a hash even if the system other-wise supports it.
+
+As such, if `imitate_hash = True` then a warning will be printed about the file but the code will imitate a hash by looking at the other metadata (which means it cannot be used for move tracking). Using `imitate_hash = True` with an incorrectly-specified hash (e.g. `hash.SHA1` instead of `hash.SHA-1`) will cause a lot of errors.
 
 ## Known Issues
 
@@ -69,45 +79,8 @@ See known issues for a discussion of situations (and failed tests) because rclon
 * If a file is deleted and then another is moved into its place, it will view it as a delete and then a new file (which will likely conflict). This is due to only specifying the path as a previous attribute so there is no way to know a file was moved vs deleted. This is tested with `test_file_deleted_replaced_with_move` (which the rclone-version would fail) but the issues is replicated in `test_file_replaced_deleted_other_prev_attr`
 * Since directories are not a concept in rclone nor some remotes, tests dealing with empty directories will fail. See 
     * `test_delete_file_in_folder`,`test_delete_folder`
-* Symlinks do not work on some remotes unless when `copy_symlinks_as_links` is True. See [this github issue](https://github.com/ncw/rclone/issues/3163)
+* Symlinks do not work on some remotes unless when `copy_symlinks_as_links` is True. See [this github issue](https://github.com/ncw/rclone/issues/3163). A workaround may be included in the future
 
-## To do
 
-- [X] Hashes: hash.sha1, hash.md5
-- [X] Example config setup
-- [X] Password
-- [?] Symlinks
-    * Manually test on different remotes
-    * Put experience into doc
-    * Note the additional flag
-- [X] Backups
-- [X] Tests
-    * hashes for tracking
-        * track with inode local and hash/mod on remote
-    * Misspecified `hash.XYZ`
-    * not working on encrypted version
-    - [X] make rclone remote option in main check and add to all *relevant* tests (wont be all)
-- Cleanup
-    - [X] Error catch
-    - [X] logging of transfers
-    - [X] thread issues from waiting
-    - [?] Better default config for different modes
-        - [X] Test the defaults and options noted in the config w.r.t attributes and proper tracking
-- [ ]  Empty dirs? Not sure I care
-* Bugs
-    - [X] `filter_old_list` doesn't work for preventing the transversal
-* Other
-    - [ ] Remove git mode
-    - [X] Cleanup call
-
-### General
-
-For both rclone and in general
-
-- [X] Setting mtime as move_attribute vs size (and change docs)
-- [X] Remove push/pull, Add first-run mode
-    * Include check to make sure it has been run before
-    * First run basically should be a union-type opperation
-    * May break some tests
 
 [remote]:https://rclone.org/overview/

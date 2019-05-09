@@ -127,14 +127,16 @@ class configparser(object):
         # These must be changed from the defaults (They are not parsed in 
         # defaults and must be set later)
         self._reqattr = ['pathB']
-
         if sync_dir is not None:
             # We parse the input twice since we want to know the remote before
             # parsing defaults. But, we do not want to prompt for a password
             # twice so we tell it to ignore it here
             _tmp = self.parse(getdict=True,pw=False)
             self.pathA = os.path.abspath(sync_dir)
-            self.parse_defaults(remote=_tmp.get('remote','rclone'))
+            if 'remote' not in _tmp:
+                print('ERROR: Must specify a remote. Must update config file for PyFiSync',file=sys.stderr)
+                sys.exit(2)
+            self.parse_defaults(remote=_tmp['remote'])
             self.parse()
         else:
             self.parse_defaults(remote=remote)
@@ -407,6 +409,16 @@ def RFC3339_to_unix(timestr):
     unix -= int(tzhh)*3600*offset
     unix -= int(tzmm)*60*offset
     return unix    
+    
+def imitate_hash(mydict):
+    """
+    Imitate the hash. This is crude and imperfect but fine for replacing
+    a missing hash
+    """
+    hasher = hashlib.sha1()
+    hasher.update(repr(mydict).encode('utf8'))
+    return  hasher.hexdigest()
+    
     
     
     

@@ -16,7 +16,9 @@ See notes at the end for the differences with S3 setup
 
 ## Plan
 
-We will use the *same* bucket to set up two different PyFiSync repositores. The first will be unencrypted and the second will be encrypted. We will have to adjust the settings accordingly
+We will use the *same* bucket to set up two different PyFiSync repositores. The first will be unencrypted and the second will be encrypted. We will have to adjust the settings accordingly.
+
+It is a good idea to use encryption if you do not trust the remote or want extra protection. In this example, we also password protect the config file but that is really *not* needed on your local machine.
 
 ## Rclone Setup
 
@@ -63,6 +65,8 @@ key = **KEY**
 ### Set up rclone encrypted
 
 We *could* set up the encrypted in the same config file but we will later encrypt it. Since we also want the non-encrypted, it is easier to make a *copy*. Note that you will have to make changes in both if you change a setting
+
+It is **NOT vital** to encrypt the encrypted B2 config since you probably trust your own computer. If you do not want to encrypt that then there is no reason to make a copy and you can skip the relevant sections
 
 Follow the following
 
@@ -163,6 +167,8 @@ e/n/d/r/c/s/q> q
 
 Now you have two configuration files for rclone. Again, you could do this as one but it is nicer to not have to enter your password for the unencrypted but you want to keep your config encrypted for the other
 
+**BACKUP** the config file since if you lose these machine-generated passwords, you will lose access to your files.
+
 ## Set up PyFiSync
 
 ### Unencrypted
@@ -232,7 +238,9 @@ Now edit the config. This is again, not *all* of it. The comments are **not** th
 ```python
 pathB = 'b2crypt'
 
-rclone_pw = pwprompt() # Make it ask each time
+# Make it ask each time. You can also either enter the password
+# here or choose to not encrypt the rclone config.
+rclone_pw = pwprompt() 
 
 # B2 should use fast-list to reduce API calls. The rclone docs
 # (https://rclone.org/b2/) suggest 32 transfers. The config flag is needed to 
@@ -271,9 +279,7 @@ Set up then add some files
 
     $ pfs reset --force
 
-...add some files and test
-
-###
+Now you should be good to go! You will get some "untracked file" warnings on the first sync for files that are not on the same side.
 
 
 ## S3 Notes

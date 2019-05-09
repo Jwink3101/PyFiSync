@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20190505'
+__version__ = '20190509.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -33,10 +33,11 @@ if self_path not in sys.path:
 
 from . import utils
 from . import PFSwalk
-from . import ldtable
-ldtable = ldtable.ldtable
-
+from .ldtable import ldtable
+from . import dry_run
 from . import remote_interfaces
+
+
 
 def init(path,remote='rsync'):
     """
@@ -69,6 +70,9 @@ def init(path,remote='rsync'):
 def reset_tracking(backup=True,empty='reset',set_time=False):
     """ Reset the tracking"""
     global log,config,remote_interface
+    if getattr(config,'_DRYRUN',False):
+        log.add('(DRY-RUN) -- Reset Tracking')
+        return
 
     remote = True
     if len(getattr(config,'userhost','')) == 0 and config.remote =='rsync':
@@ -180,9 +184,8 @@ def main(mode):
     ## Setup
     T0 = time.time()
     log.add('Start Time: ' +_unix_time(T0))
-    log.add('Mode: {:s}'.format(mode))
-    log.add('Version: ' + __version__)
-    
+    log.add('Mode: {:s}{:s}'.format(mode,' (DRY-RUN)' if config._DRYRUN else ''))
+    log.add('Version: ' + __version__)    
 
     timepath = os.path.join(config.pathA,'.PyFiSync','last_run.time')
     config.last_run = float(open(timepath).read())
@@ -299,12 +302,16 @@ def main(mode):
     log.add('Applying queues')
     log.space = 2
     
-    apply_action_queue(config.pathA,move_queueA + action_queueA)
-
-    if remote:
-        remote_interface.apply_queue(move_queueB + action_queueB)
+    if config._DRYRUN:
+        dry_run.apply_action_queue(move_queueA + action_queueA,log,config.nameA,config)
+        dry_run.apply_action_queue(move_queueB + action_queueB,log,config.nameB,config)  
     else:
-        apply_action_queue(config.pathB,move_queueB + action_queueB)
+        apply_action_queue(config.pathA,move_queueA + action_queueA)
+
+        if remote:
+            remote_interface.apply_queue(move_queueB + action_queueB)
+        else:
+            apply_action_queue(config.pathB,move_queueB + action_queueB)
         
     # We will use the rsync (via the ssh_rsync) interface. 
     if not remote:
@@ -315,7 +322,11 @@ def main(mode):
     log.line()
     log.add('Final Transfer')
     log.space=2
-    remote_interface.transfer(tqA2B,tqB2A)
+    
+    if config._DRYRUN:
+        dry_run.transfer(tqA2B,tqB2A,log)
+    else:
+        remote_interface.transfer(tqA2B,tqB2A)
     
     ## Get updated lists
     log.space = 0
@@ -771,8 +782,12 @@ def run_bash(pre):
         cmd += config.post_sync_bash.strip()        
     
     
-    log.add('Calling pre/post_sync_bash scripts ')
+    log.add('{}Calling pre/post_sync_bash scripts '.format('(DRY-RUN) ' if config._DRYRUN else ''))
     log.add('\n'.join('   $ {}'.format(c) for c in cmd.split('\n')))
+    
+    if config._DRYRUN:
+        log.add('(DRY-RUN): ** Not Called **')
+        return
     
     proc = subprocess.Popen(cmd,shell=True,stderr=subprocess.PIPE,stdout=subprocess.PIPE)
     out,err = proc.communicate()
@@ -811,6 +826,7 @@ def cli(argv=None):
         
     parser_main.add_argument('-v', '--version', action='version', 
         version='%(prog)s-' + __version__,help='Display version and exit')
+    parser_main.add_argument('--debug',action='store_true',help=argparse.SUPPRESS)
     
     # Parent parser for ALL modes/subparsers
     parser_all_opts = argparse.ArgumentParser(add_help=False) # Notice this is NOT a subparser of parser_main
@@ -829,6 +845,8 @@ def cli(argv=None):
     parser_syncops.add_argument('--no-backup',
         action='store_true',
         help='Override config and do not back up files')
+    parser_syncops.add_argument('--dry-run',action='store_true',
+        help='do a dry-run. Results should be reasonably accurate')
     
     # Make the parser with the right combination of options
     parser_sync = subparsers.add_parser('sync',
@@ -894,14 +912,18 @@ def cli(argv=None):
         config = utils.configparser(sync_dir=path)
         log = utils.logger(path=path,silent=False)
         
+        config._DRYRUN = args.dry_run
+                
         _remote = remote_interfaces.get_remote_interface(config)
         
         if _remote is None:
             remote_interface = None
         else:
             remote_interface = _remote(config,log)
-            
         
+        if args.debug:
+            remote_interface._debug = True
+            
         if args.no_backup:
             config.backup = False
         
@@ -925,6 +947,8 @@ def cli(argv=None):
             remote_interface = None
         else:
             remote_interface = _remote(config,log)
+        if args.debug:
+            remote_interface._debug = True
         
         if not args.force:
             print('Are you sure you want to reset? (Y/[N]): ')

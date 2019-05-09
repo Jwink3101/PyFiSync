@@ -192,9 +192,6 @@ class file_list:
                     self.exclude_file.add(e)
                 else:
                     self.exclude_file_no_glob.add(e)
-
-        if self.config.git_exclude:
-            self.exclude_dirs.add('.git/')
     
     def _walk(self,path,_d=0):
         """
@@ -204,23 +201,6 @@ class file_list:
         if path.endswith('/'):
             path = path[:-1] # Remove trailing / so we can avoid os.path.join
 
-        
-        # Check if there is a .git directory. If so add all tracked files into
-        # the full file excludes. Also check the top level.
-        if self.config.git_exclude and (_d == 0 or os.path.exists(path + '/.git/')):
-            # Get the git file list
-            try:
-                cmd = 'cd "{}";git ls-files 2>/dev/null'.format(path)
-                git_excludes = subprocess.check_output(cmd,shell=True)
-                git_excludes = utils.to_unicode(git_excludes).split('\n')
-                git_excludes = [g.strip() for g in git_excludes if len(g.strip())>0]
-            except subprocess.CalledProcessError:
-               git_excludes = [] # Not a git repo
-            
-            # Add the files to the exclude. We know there won't be a glob pattern on them
-            relpath = _relpath(path,self.path)
-            for exclude in git_excludes:
-                self.exclude_file_full_no_glob.add('/' + os.path.join(relpath,exclude))
         
         # We only care if anything was returned; directory or file
         # Note that based on the nested nature of this, directories are trans-

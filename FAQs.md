@@ -8,7 +8,7 @@ Plus, this was a great learning tool for python. Developing this was a lot of fu
 
 ## Are files encrypted?
 
-Using the default (and currently only) mode, the files are encrypted **in transit** via SSH. However, since this is not inherently a server-client model, the files are unencrypted at rest.
+Using the rsync mode, the files are encrypted **in transit** via SSH. However, since this is not inherently a server-client model, the files are unencrypted at rest.
 
 I suggest [Cryptomator](https://cryptomator.org/) for encrypted files as it is cross-platform and doesn't introduce much overhead and is efficient. It encrypts on a file-by-file basis (with obfuscated names) so changing a file will only require syncing that file (and some ancillary data). Speedups from rsync will not be realized.
 

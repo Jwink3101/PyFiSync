@@ -1,14 +1,17 @@
 # PyFiSync
 
-Python (+ rsync) based intelligent file sync with automatic backups and file move/delete tracking.
+Python (+ rsync or rclone) based intelligent file sync with automatic backups and file move/delete tracking.
 
 ## Features
 
 * Robust tracking of file moves
     * Especially powerful on MacOS, but works well enough on linux.
-* Works out of the box with Python (tested on 2.7 and 3.6)
-* Works over SSH for secure and easy connections
-* Uses rsync for actual file transfers to save bandwidth
+* Rsynce Mode:
+    * Works out of the box with Python (tested on 2.7 and 3.6) for rsync
+    * Works over SSH for secure and easy connections with rsync mode
+    * Uses rsync for actual file transfers to save bandwidth
+* [rclone][rclone] mode: (beta!)
+    * Can connect to a wide variety of cloud-services and offers encryption
 * Extensively tested for a **huge** variety of edge-cases
 
 
@@ -30,25 +33,41 @@ Note: On HFS+ (and maybe APFS?), macOS's file system, inodes are not reused quic
 
 Available attributes:
 
+#### Common attributes
+
 * `path` -- This essentially means that moves are not tracked. If a file has the same name, it is considered the same file
-* `ino` (inode number)-- Track the filesystem inode number. May be safely used alone on HFS+ but not on ext3
 * `size` -- File size. Do not use alone. Also, this attribute means that the file may not change between moves. See examples below
+* `mtime` -- When the file was modified. Use with `ino` to track files
+
+#### rsync attributes
+
+* `ino` (inode number)-- Track the filesystem inode number. May be safely used alone on HFS+ but not on ext3 since it reuses inodes. In that case, use with another attribute
 * `sha1` -- Very robust to track file moves but like `size`, requires the file not change. Also, slow to calculate (though, by default, they are not recalculated on every sync)
 * `birthtime` -- Use the `stat()` (via `os.stat()`) file create time. This does not exist on some linux machines, some python implementations (PyPy), and/or is unreliable
 
+#### rclone attributes
+
+* `hash.HASH` -- Use a hash from rclone. Depends on which hashes are available.
+
 #### Suggested move Attribute Combinations
 
-* On macOS, the following is suggested: `inode,birthtime`
-* On linux, the following is suggested: `inode,size`
+For rsync
+
+* On macOS, the following is suggested: `[ino,birthtime]`
+* On linux, the following is suggested: `[inode,mtime]`
     * This means that **moved files should not be modified** on that side of the sync.
 
 ### Empty Directories
 
-PyFiSync syncs files and therefore will *not* sync empty directories from one machine to the other. However, if, and only if, a directory is *made* empty by the sync, it will be deleted. That includes nested directories.
+PyFiSync syncs files and therefore will *not* sync empty directories from one machine to the other. However, if, and only if, a directory is *made* empty by the sync, it will be deleted. That includes nested directories. In rclone mode, empty directories are not handled by PyFiSync
+
+## Dry Run
+
+All files are backed up by default before being ov
 
 ## Install
 
-This are *no dependancies!*. Everything is included in the package (though `ldtable` is also separately developed [here](https://github.com/Jwink3101/ldtable))
+This are *no dependancies!* (for rsync). Everything is included in the package (though `ldtable` is also separately developed [here](https://github.com/Jwink3101/ldtable))
 
 To install:
 
@@ -60,38 +79,15 @@ Or download the zip file and run
 
 Note: On the remote machine, the path to PyFiSync must be found via SSH. For example, if your python is from (Ana/Mini)conda, then it places the paths into the `.bash_profile`. Move the paths to `.bashrc` so that PyFiSync can be found. Alternatively, specify `PyFiSync_path` and `remote_program` in the config. Or, you can explicitly set the path to the files
 
-## Set Up
+## Setup
 
-First set up ssh keys on your *local* machine:
+See [rsync](rsync.md) for setup of the default mode.
 
-    $ cd
-    $ ssh-keygen -t rsa 
-    
-    # It is highly suggested you use a password but you can hit enter 
-    # twice to skip it
+Setting up rclone is a bit more involved since you must set up an appropriate rclone remote. See [rclone readme](rclone.md) for general details and [rclone\_b2](rclone_b2.md) for a detailed walk through of setting up with B2 (and S3 with small noted changes). 
 
-    $ cat ~/.ssh/id_rsa.pub | ssh user@remote-system "mkdir -p ~/.ssh && cat >>  ~/.ssh/authorized_keys" 
+To initiate an rclone-based repo, do
 
-I will assume that `PyFiSync` is in the path or an alias has been set up:
-
-    $ PyFiSync init path/to/sync_dir
-
-Then modify the config file. All options are commented.
-
-    $ PyFiSync reset --force path/to/sync_dir
-
-Then sync. This will essentially create a union of the two sides
-
-    $ PyFiSync sync path/to/syncdir
-
-Essentially this will be a union of the two sides
-    
-(The `--all` is optional but suggested for the first sync. If using `--all`, it is *highly* suggested to add `--no-backup` since everything would be copied)
-
-Or, (`PyFiSync` assumes a `sync .` if not given other options)
-
-    $ cd path/to/syncdir
-    $ PyFiSync
+    $ PyFiSync init --remote rclone
 
 ## Settings
 
@@ -130,23 +126,8 @@ WARNINGS:
 * If `copy_symlinks_as_links = False` and there are symlinked files to another IN sync root, there will be issues with the file tracking. Do not do this!
 * As also noted in Python's documentation, there is no **safeguard against recursively symlinked directories**.
 * rsync may throw warnings for broken links
+* rclone's support of symlinks is unreliable at the moment.
 
-### Ignore git-tracked files
-
-When selected, PyFiSync will exclude any file that is tracked by git and exclude `.git/` directories. This is preferable to syncing the `.git/` folder and everything since that can get corrupted pretty easily. Then, to keep a directory in line, you can use git to sync specific files and PyFiSync for everything else.
-
-Please note that if your typical use case involves larger files and requires better syncing, [`git-annex`][ga] or [`git-lfs`][gl] may be more appropriate
-
-[gl]:https://git-lfs.github.com/
-[ga]:https://git-annex.branchable.com/
-
-#### Warnings and Edge Cases
-
-There are a few gotchas to excluding git-tracked files
-
-* The exclusions are based on each machine's local copy of the git repo. Therefore, if a file is tracked via git on one side but not the other, it will transfer and overwrite (thankfully, this should be recoverable via git...)
-    * It is *highly* recommended to **make sure the git repos are in sync** first!
-* If it is an entire type of file that will be kept in sync, it is faster and preferable to use git and PyFiSync's exclusions to keep them separate
 
 ### Pre and Post Bash
 
@@ -162,10 +143,6 @@ To run the test, in bash, do:
 
 In addition to testing a whole slew of edge cases, it also  will test all actions on a local sync, and remote to both python2 and python3 (via `ssh localhost`). The run script will try to call `py.test` for both versions of python locally.
 
-### Python 3 Note
-
-The code is tested and compatible with both python 2 and 3. Furthermore, if using a later version of python (or have installed the backported scandir), the file listing time will be faster.
-
 ## Known Issues and Limitations
 
 The test suite is **extremely** extensive as to cover tons of different and difficult scenarios. See the tests for further exploration of how the code handles these cases. Please note that unless specified explicitly in the config or the command-line flag, all deletions and (future) overwrites first perform a backup. Moves are not backed up but make likely be unwound from the logs.
@@ -179,11 +156,13 @@ A few notable limitations are as follows:
     
 There is also a potential issue with the test suite. In order to ensure that the files are noted as changed (since they are all modified so quickly), the times are often adjusted via some random amounts. There is a *small* chance some tests could fail due to a small number not changing. Running the tests again should pass.
 
+See [rclone readme](rclone.md) for some rclone-related known issues
+
 
 ## Other Questions
 
 See the (growing) [FAQ](FAQs.md) for some more details and/or troubleshooting
 
-
+[rclone]:https://rclone.org/
 
 

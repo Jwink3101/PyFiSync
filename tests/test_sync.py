@@ -21,9 +21,9 @@ from pprint import pprint
 import pytest
 
 ## Specify whether to test remotely or locally...or both
-remotes = [False]   # Just test locally
+#remotes = [False]   # Just test locally
 #remotes = ['python2','python3']
-#remotes = [False,'python2','python3']
+remotes = [False,'python2','python3']
 # remotes = ['python2']
 
 rclone = ['rclone'] 
@@ -1513,105 +1513,7 @@ def test_broken_links(remote): # old test 02
     assert len(re.findall('Remote Call returned warnings:',log_txt)) == N
     assert len(re.findall('ERROR: Could not find information on broken_link',log_txt)) == 2
 
-#@pytest.mark.parametrize("remote,level", list(itertools.product(remotes,[0,1,2])))
-#def test_git_exclude(remote,level):
-def test_git_exclude():
-    # This test is being excluded for now.
-    return
-    """
-    Test with git exclusions at different levels
-    
-    level 0: git root is outside of the sync root
-    level 1: git root is the same as the sync root
-    level 2: git root is below the sync root
-    """
-    import subprocess
-    testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
-            'test_dirs','test_git_exclude/out0/')
-    try:
-        shutil.rmtree(testpath)
-    except:
-        pass
-    os.makedirs(testpath)
-    testutil = testutils.Testutils(testpath=testpath)
-
-    # Init
-    testutil.write('A/sub2/InGit1.txt',text='in1')
-    testutil.write('A/sub2/InGit2.txt',text='in2')
-    testutil.write('A/sub2/OutGit1.txt',text='out1')
-    testutil.write('A/sub2/OutGit2.txt',text='out2')
-    
-    # Add some more exclusions outside of git
-    testutil.write('A/allow.txt',text='a')
-    testutil.write('A/exclude1.txt',text='a')
-    testutil.write('A/exclude2.txt',text='a')
-    
-    # Init the git directory
-    if level == 0: # Above the sync dirs
-        # Copy then create the git repo
-        testutil.modtime_all()
-        gitroot = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
-            'test_dirs','test_git_exclude/out0')
-    elif level == 1: # Inside of the dirs
-        gitroot = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
-            'test_dirs','test_git_exclude/out0/A')     
-    elif level == 2:
-        gitroot = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
-            'test_dirs','test_git_exclude/out0/A/sub2')   
-    else:
-        raise ValueError('Not Valid level')
-        
-    cmd = [ 'cd {}',
-            'echo "Out*.txt">.gitignore',
-            'git init .',
-            'git add .',
-            'git commit -am"first"']
-    cmd = ';'.join(cmd).format(gitroot)
-    subprocess.call(cmd,shell=True)
-     
-        
-    # Randomize Mod times if not level 0
-    if level>0:
-        testutil.modtime_all()  
-
-# 
-    # Start it
-    config = testutil.get_config(remote=remote)
-    config.git_exclude = True
-    config.excludes += ['[ae]xclude1.txt','exclude2.txt']
-    testutil.init(config)
-
-    # Apply actions
-    
-    testutil.write('A/sub2/InGit1.txt',text='in1-updatedA')
-    testutil.write('A/sub2/OutGit1.txt',text='out1-updatedA')
-
-    testutil.write('B/sub2/InGit2.txt',text='in1-updatedB')
-    testutil.write('B/sub2/OutGit2.txt',text='out1-updatedB')
-    
-    testutil.write('A/exclude2.txt',text='aa')
-    testutil.write('B/exclude1.txt',text='bb')
-    
-    # Sync
-    testutil.run(config)
-
-    # Check it -- Only need to check A
-    diffs = testutil.compare_tree()
-    
-    # The files should disagree
-    assert ('disagree', 'sub2/InGit1.txt') in diffs
-    assert testutil.read('A/sub2/InGit1.txt') == 'in1-updatedA'
-    
-    assert ('disagree', 'sub2/InGit2.txt') in diffs
-    assert testutil.read('B/sub2/InGit2.txt') == 'in1-updatedB'
-    
-    assert (u'disagree', u'exclude1.txt') in diffs
-    assert (u'disagree', u'exclude2.txt') in diffs
-    
-    # No other differences
-    assert len(diffs) == 4
-
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_pre_post_bash(remote):
     """ Testing the pre_sync_bash and post_sync_bash"""
     testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
@@ -1662,7 +1564,7 @@ python -c "import sys;sys.stderr.write('error test\\n')" # Write to error
     log_txt = open(log_path[-1]).read()
     assert len(re.findall(r'STDERR: *?> *? error test',log_txt.replace('\n',''),re.DOTALL)) == 1
 
-
+# - [ ] Need to check this test....
 @pytest.mark.parametrize("remote", remotes)
 def test_duplicate_sha1(remote): # old test 02    
     """ 
@@ -1766,11 +1668,128 @@ def test_use_hashdb(remote): # This used to be test 01
             assert testutil.exists(os.path.join(testpath,'A','.PyFiSync','hash_db.json'))
             assert testutil.exists(os.path.join(testpath,'B','.PyFiSync','hash_db.json'))
 
+@pytest.mark.parametrize("remote", remotes)
+def test_dry_run(remote):
+    """ Test DRY RUN """
+    testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
+            'test_dirs','dry_run')
+    try:
+        shutil.rmtree(testpath)
+    except:
+        pass
+    os.makedirs(testpath)
+    testutil = testutils.Testutils(testpath=testpath)
+
+
+    # Init
+    testutil.write('A/moveA',text='moveA')
+    testutil.write('A/moveB',text='moveB')
+    
+    testutil.write('A/deleteA',text='deleteA')
+    testutil.write('A/deleteB',text='deleteB')
+    
+    testutil.write('A/modA',text='modA')
+    testutil.write('A/modB',text='modB')    
+    
+
+    # Randomize Mod times
+    testutil.modtime_all()
+
+    # Start it
+    config = testutil.get_config(remote=remote)
+    testutil.init(config)
+
+    # Apply actions and update config with bash 
+    config.pre_sync_bash="""\
+echo "PRE" > from_bashPRE
+    """    
+    config.post_sync_bash="""\
+echo "POST" > from_bashPOST
+    """    
+    
+    testutil.move('A/moveA','A/moveAA')
+    testutil.move('B/moveB','B/moveBB')
+    
+    testutil.remove('A/deleteA')
+    testutil.remove('B/deleteB')
+    
+    testutil.write('A/modA',text='mA',mode='a')
+    testutil.write('B/modB',text='mB',mode='a')   
+
+    # Sync
+    # Make sure nothing is changed -- including bash commands
+    pre_tree = set(testutil.tree(testutil.testpath))
+    testutil.run(config,flags=('--dry-run',))
+    post_tree = set(testutil.tree(testutil.testpath))
+    
+    assert pre_tree == post_tree
+    
+##############################
+### rclone Only
+#############################
+@pytest.mark.parametrize("remote",rclone)
+def test_imitate_rclone_hash(remote):
+    """ Test for incorectly specified or missing hash with rlcone """
+    for imitate in [True,False]:
+        testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
+                'test_dirs','test_imitate_rclone_hash')
+        assert remote == 'rclone'
+        try:
+            shutil.rmtree(testpath)
+        except:
+            pass
+        os.makedirs(testpath)
+        testutil = testutils.Testutils(testpath=testpath)
+
+
+        # Init
+        testutil.write('A/moveA',text='moveA')
+        testutil.write('A/moveB',text='moveB')
+
+        # Randomize Mod times
+        testutil.modtime_all()
+
+        # Start it
+        config = testutil.get_config(remote=remote)
+        config.move_attributesB = ['hash.NOPE']
+        config.imitate_missing_hash = imitate
+        
+        if imitate:
+            testutil.init(config)
+        else:
+            with pytest.raises(SystemExit):
+                testutil.init(config)
+            return
+            
+        # Apply actions
+        testutil.move('A/moveA','A/moveA_moved')
+        testutil.move('B/moveB','B/moveB_moved')
+
+        # Sync
+        testutil.run(config)
+
+        # Check it -- Only need to check A
+        # If it failed this wouldn't show but we'll check the logs to make sure
+        # it didn't move the file
+        assert testutil.exists('A/moveA_moved')
+        assert not testutil.exists('A/moveA')
+    
+        assert testutil.exists('B/moveB_moved')
+        assert not testutil.exists('B/moveB')
+    
+        # Make sure it actually did the move and not just transfer for A
+        log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
+        log_path.sort()
+        log_txt = open(log_path[-1]).read()
+        assert "No A >>> B transfers" in log_txt
+        assert "No A <<< B transfers" not in log_txt # NOT!
+        assert "moveB --> moveB_moved" not in log_txt # NOT!
+
+        assert len(testutil.compare_tree()) == 0
+
 
 if __name__=='__main__':    
-    #test_nothing('rclone')
-    test_check_new_on_delete('python2')
-
+    test_nothing(False)
     sys.exit()
 
 

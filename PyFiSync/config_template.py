@@ -74,6 +74,13 @@ rclone_flags = ['--transfers', '32','--fast-list','--checkers','10']
 # so instead, we can *just* backup via a local copy
 rclone_backup_local = False
 
+# Some remote (e.g. S3) do not provide hashes for all files (such as those
+# uploaded with multi-part). As such PyFiSync can imitate a hash when missing
+# based on the other metadata (so it cannot track remote moves). Warning: if
+# this is set with an incorrectly specified hash, (a) the screen will fill with
+# warnings and (b) no moves will be tracked
+imitate_missing_hash = False
+
 # </rclone>
 
 # File Settings:
@@ -163,7 +170,8 @@ use_hash_db = True
 # | `[seq]`  | matches any character in `seq`     |
 # | `[!seq]` | matches any character not in `seq` |
 #
-# Specify as a single list
+# Specify as a single list.
+# These are suggestions. They can be included if desired
 excludes = ['.DS_Store','.git/','Thumbs.db']
 
 # The following can be used to perform certain tasks pre and post sync.
@@ -173,13 +181,6 @@ excludes = ['.DS_Store','.git/','Thumbs.db']
 pre_sync_bash = ''
 post_sync_bash = ''
 
-# Setting this to True will ignore any file that is currently tracked with git.
-# It will work regardless of where the git repo is located (e.g. below the root
-# of the PyFiSync folder).
-# WARNING: It will be based on the current state of any git repos on both
-#          sides. Make sure the git repos are in sync (via pre_sync_bash
-#          for example) before syncing
-git_exclude = False
 
 
 
