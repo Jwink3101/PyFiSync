@@ -26,8 +26,8 @@ class Testutils(object):
     def __init__(self,testpath=None):
         self.testpath = testpath
 
-    def copy_tree(self):
-        """ Copy the test path from A to B and then change the times """
+    def modtime_all(self):
+        """ modified all of the times """
         random.seed(4474)
         pathA = os.path.join(self.testpath,'A')
         pathB = os.path.join(self.testpath,'B')
@@ -35,12 +35,10 @@ class Testutils(object):
         for dirpath, dirnames, filenames in os.walk(pathA):
             for f in filenames:
                 change_time(os.path.join(dirpath,f),random.randint(-100*MAX_TIME_MOD,-(MAX_TIME_MOD+2)))
-        
-        if not pathA.endswith('/'):
-            pathA += '/'
-        
-        cmd = 'rsync -at {pathA} {pathB}'.format(**locals())
-        os.system(cmd)
+        try:
+            os.makedirs(pathB)
+        except:
+            pass
 
 
     def write(self,path,time_adj=None,mode='w',text=None):
@@ -147,24 +145,27 @@ class Testutils(object):
         return result
 
     def get_config(self,remote=False):
-        config = utils.configparser()
+        if remote == 'rclone':
+            config = utils.configparser(remote='rclone')
+            config.move_attributesB = ['hash.SHA-1']
+        else:
+            config = utils.configparser(remote='rsync')
+            if remote:
+                config.userhost = os.environ['USER'] + '@localhost'
+                if remote == 'python2':
+                    config.remote_program = 'python2'
+                elif remote == 'python3':
+                    config.remote_program = 'python3'
+            else:
+                config.userhost = ''
+            # This will need to change when/if there is no longer the PyFiSync.py
+            # file (using, say, entry-points)
+            config.PyFiSync_path = os.path.normpath(os.path.join(os.path.dirname(__file__),'..','PyFiSync.py'))        
+        
         config.excludes += ['.DS_Store','.git/','Thumbs.db']
         config.pathA = os.path.join(self.testpath,'A')
         config.pathB = os.path.join(self.testpath,'B')
 
-        if remote:
-            config.userhost = os.environ['USER'] + '@localhost'
-            if remote == 'python2':
-                config.remote_program = 'python2'
-            elif remote == 'python3':
-                config.remote_program = 'python3'
-        else:
-            config.userhost = ''
-
-        # This will need to change when/if there is no longer the PyFiSync.py
-        # file (using, say, entry-points)
-        config.PyFiSync_path = os.path.normpath(os.path.join(os.path.dirname(__file__),'..','PyFiSync.py'))
-        
         return config
         
     def write_config(self,config):
@@ -174,7 +175,7 @@ class Testutils(object):
         config_file = open(config_path,'w')
         
         for key,val in config.__dict__.items():
-            if key.startswith('_'):
+            if key.startswith('_') or key == 'pwprompt':
                 continue
             config_file.write(key + ' = ' )
             pprint(val,stream=config_file)
@@ -188,26 +189,20 @@ class Testutils(object):
         PyFiSync.cli(['init',pathA])
         self.write_config(config)
         PyFiSync.cli(['reset','--force',pathA])
-        
+        PyFiSync.cli(['sync',pathA])
         # At init, every file's mod time was changed to be at least -(MAX_TIME_MOD+2)
         # so we do not need to modify the last_run
         
 
-    def run(self,config,mode='sync',silent=False):
+    def run(self,config,mode='sync',silent=False,flags=tuple()):
         pathA = os.path.join(self.testpath,'A')
         pathB = os.path.join(self.testpath,'B')
 
         self.write_config(config)
         if mode == 'sync':
-            PyFiSync.cli(['sync',pathA])
-        if mode == 'push':
-            PyFiSync.cli(['push',pathA])
-        if mode == 'push_all':
-            PyFiSync.cli(['push','--all',pathA])
-        if mode == 'pull':
-            PyFiSync.cli(['pull',pathA])
-        if mode == 'pull_all':
-            PyFiSync.cli(['pull','--all',pathA])
+            cmd = ['sync'] + list(flags) + [pathA]
+            PyFiSync.cli(cmd)
+        
     
 def randstr(N=10):
     return ''.join(random.choice(string.lowercase+'0123456789') for _ in xrange(10))

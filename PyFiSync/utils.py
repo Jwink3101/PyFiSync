@@ -18,12 +18,14 @@ import itertools
 import argparse
 import copy
 from threading import Thread
+import getpass
 
 try:
     from queue import Queue
 except ImportError:
     from Queue import Queue
-    
+
+
 
 if sys.version_info >= (3,):
     unicode = str
@@ -113,7 +115,7 @@ class logger(object):
 class configparser(object):
     """This will eventually be the configuration"""
     default_path = os.path.join(os.path.dirname(__file__),'config_template.py')
-    def __init__(self,sync_dir=None):
+    def __init__(self,sync_dir=None,remote=None):
 
         self.sync_dir = sync_dir
         
@@ -125,21 +127,28 @@ class configparser(object):
         # These must be changed from the defaults (They are not parsed in 
         # defaults and must be set later)
         self._reqattr = ['pathB']
-
-        self.parse_defaults()
-        
         if sync_dir is not None:
+            # We parse the input twice since we want to know the remote before
+            # parsing defaults. But, we do not want to prompt for a password
+            # twice so we tell it to ignore it here
+            _tmp = self.parse(getdict=True,pw=False)
             self.pathA = os.path.abspath(sync_dir)
+            if 'remote' not in _tmp:
+                print('ERROR: Must specify a remote. Must update config file for PyFiSync',file=sys.stderr)
+                sys.exit(2)
+            self.parse_defaults(remote=_tmp['remote'])
             self.parse()
-
+        else:
+            self.parse_defaults(remote=remote)
+        
+    
         # Some special things
         self.excludes = list(set(self.excludes + ['.PBrsync/','.PyFiSync/']))
 
-    def parse_defaults(self):
+    def parse_defaults(self,remote=None):
         """
         Parse all defaults from the template except those in self._reqattr
         """
-        
         config = dict()
         try:
             with open(self.default_path,'rt') as F:
@@ -151,6 +160,11 @@ class configparser(object):
             _zf = zipfile.ZipFile(self.default_path[:self.default_path.find('/PyFiSync/config_template.py')])
             txt = _zf.read('PyFiSync/config_template.py')
             txt = to_unicode(txt)
+        
+        if remote is None:
+            remote = 'rsync'
+        txt = self._filterconfig(txt,remote=remote)
+        
         exec(txt,config)       
         
         for key,val in config.items():
@@ -159,20 +173,26 @@ class configparser(object):
             if key in self._reqattr:
                 continue
             setattr(self,key,val)
-    
-    def parse(self):
+
+    @property
+    def configpath(self):
         for ext in ['','.py']:
             config_path = os.path.join(self.sync_dir,'.PyFiSync','config'+ext)
             if os.path.exists(config_path):
                 break
         else:
             sys.stderr.write('ERROR Could not find config file. Did you run `init`?\n')
-            sys.exit(2)
+            sys.exit(2)    
+        return config_path
 
-        config = dict()
-        with open(config_path,'rt') as F:
+    def parse(self,getdict=False,pw=True):
+        none = lambda *a,**k:None
+        config = dict(pwprompt=getpass.getpass if pw else none)
+        with open(self.configpath,'rt') as F:
             txt = F.read()
             exec(txt,config)    
+        if getdict:
+            return config
         
         for key,val in config.items():
             if key in self._listattr and not isinstance(val,list):
@@ -189,10 +209,26 @@ class configparser(object):
             self.copy_symlinks_as_links = not self.symlinks
 
     @classmethod
-    def config_example(cls):
+    def config_example(cls,remote='rsync'):
         """ Return an example configuration"""
         with open(cls.default_path,'rt') as F:
-            return F.read()
+            config = F.read()
+        return configparser._filterconfig(config,remote=remote)
+   
+    @staticmethod
+    def _filterconfig(config,remote='rsync'):   
+        # remove anything that is not part of this remote
+        from .remote_interfaces import REMOTES
+        if remote not in REMOTES:
+            raise ValueError('Not a valid remote')
+        for rem in REMOTES:
+            if rem == remote:
+                repr = r'\1'
+            else:
+                repr = ''
+            regex = r'^#[\ \t]*?\<FLAG\>(.*?)#[\ \t]*?\<[\/\\]FLAG\>'.replace('FLAG',rem)
+            config = re.sub(regex,repr,config,flags=re.MULTILINE|re.DOTALL)
+        return config
 
 def sha1(filepath,BLOCKSIZE=2**20):
     """
@@ -342,3 +378,47 @@ class ReturnThread(Thread):
         self.q.task_done()
         self.q.join()
         return res
+            
+def RFC3339_to_unix(timestr):
+    """
+    Parses RFC3339 into a unix time
+    """
+    d,t = timestr.split('T')
+    year,month,day = d.split('-')
+    
+    t = t.replace('Z','-00:00') # zulu time
+    t = t.replace('-',':-').replace('+',':+') # Add a new set
+    hh,mm,ss,tzhh,tzmm = t.split(':')
+    
+    offset = -1 if tzhh.startswith('-') else +1
+    tzhh = tzhh[1:]
+    
+    try:
+        ss,micro = ss.split('.')
+    except ValueError:
+        ss = ss
+        micro = '00'
+    micro = micro[:6] # Python doesn't support beyond 999999
+    
+    dt = datetime.datetime(int(year),int(month),int(day),
+                           hour=int(hh),minute=int(mm),second=int(ss),
+                           microsecond=int(micro))
+    unix = (dt - datetime.datetime(1970,1,1)).total_seconds()
+    
+    # Account for timezone which counts backwards so -=
+    unix -= int(tzhh)*3600*offset
+    unix -= int(tzmm)*60*offset
+    return unix    
+    
+def imitate_hash(mydict):
+    """
+    Imitate the hash. This is crude and imperfect but fine for replacing
+    a missing hash
+    """
+    hasher = hashlib.sha1()
+    hasher.update(repr(mydict).encode('utf8'))
+    return  hasher.hexdigest()
+    
+    
+    
+    

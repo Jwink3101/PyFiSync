@@ -21,12 +21,15 @@ from pprint import pprint
 import pytest
 
 ## Specify whether to test remotely or locally...or both
-# remotes = [False]   # Just test locally
+#remotes = [False]   # Just test locally
 #remotes = ['python2','python3']
 remotes = [False,'python2','python3']
 # remotes = ['python2']
 
-@pytest.mark.parametrize("remote", remotes)
+rclone = ['rclone'] 
+
+
+@pytest.mark.parametrize("remote", remotes+rclone)
 def test_nothing(remote): # This used to be test 01
     """ Nothing. Add SHA1 to test that code"""
     
@@ -43,8 +46,8 @@ def test_nothing(remote): # This used to be test 01
     # Init
     testutil.write('A/file1',text='test01f1')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -62,7 +65,7 @@ def test_nothing(remote): # This used to be test 01
     assert len(testutil.compare_tree()) == 0
 
 
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes+rclone)
 def test_mod_files(remote): # old test 02
     """ Different Files are modified both in A and B """
     
@@ -80,14 +83,12 @@ def test_mod_files(remote): # old test 02
     testutil.write('A/file1',text='test02.a')
     testutil.write('A/file2',text='test02.b')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
     testutil.init(config)
-
-#     raw_input('a')
 
     # Apply actions
     testutil.write('A/file1',text='test02.a',mode='a') # append it
@@ -105,7 +106,7 @@ def test_mod_files(remote): # old test 02
 
 
 mod_conflicts = ['A','B','newer','both','newer_tag']
-@pytest.mark.parametrize("remote,mod_conflict", list(itertools.product(remotes,mod_conflicts)))
+@pytest.mark.parametrize("remote,mod_conflict", list(itertools.product(remotes + rclone,mod_conflicts)))
 def test_simple_conflict(remote,mod_conflict): 
     """ Same Files are modified both in A and B """
     
@@ -127,8 +128,8 @@ def test_simple_conflict(remote,mod_conflict):
     # Init
     testutil.write('A/file1',text='test')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -157,7 +158,8 @@ def test_simple_conflict(remote,mod_conflict):
     if mod_conflict == 'both':    
         assert files == set([u'file1.machineA', u'file1.machineB'])
 
-@pytest.mark.parametrize("remote", remotes)
+# Include rclone in this since it will track with the sha-1 and none are modified
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_move_files(remote): # old test 03
     """ Different Files are modified both in A and B """
     testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
@@ -175,8 +177,8 @@ def test_move_files(remote): # old test 03
     testutil.write('A/the/very/deep/folder/path/file',text='file')
     testutil.write('A/moveB',text='moveB')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -192,9 +194,13 @@ def test_move_files(remote): # old test 03
 
     # Check it -- Only need to check A
     assert testutil.exists('A/moveA_moved')
-    assert testutil.exists('A/ff/moveB_moved')
-    assert not testutil.exists('A/test03/moveA')
-    assert not testutil.exists('A/test03/moveB')
+    assert not testutil.exists('A/moveA')
+    
+    assert testutil.exists('B/ff/moveB_moved')
+    assert not testutil.exists('B/moveB')
+
+    assert testutil.exists('B/the/very/deep/folder/path/filename')
+    assert not testutil.exists('B/the/very/deep/folder/path/file')
 
     # Make sure it actually did the move and not just transfer
     log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
@@ -209,7 +215,7 @@ def test_move_files(remote): # old test 03
     # Finally
     assert len(testutil.compare_tree()) == 0
 
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_move_same_file(remote): # old test 04
     """ File moved by both A and B to the same location """
     testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
@@ -225,8 +231,8 @@ def test_move_same_file(remote): # old test 04
     # Init
     testutil.write('A/file',text='file')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -247,7 +253,7 @@ def test_move_same_file(remote): # old test 04
     # Finally
     assert len(testutil.compare_tree()) == 0
 
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_moved_new_in_loc(remote): # old test 05
     """ File moved by A. New file placed by B in same location.
     see test_movedmod_new_in_loc"""
@@ -264,8 +270,8 @@ def test_moved_new_in_loc(remote): # old test 05
     # Init
     testutil.write('A/file0',text='file0')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -291,6 +297,7 @@ def test_moved_new_in_loc(remote): # old test 05
     # Finally
     assert len(testutil.compare_tree()) == 0
 
+# do not test rclone since it only tracks moves when not modified
 @pytest.mark.parametrize("remote", remotes)
 def test_movedmod_new_in_loc(remote): # old test 14. Extension of test_moved_new_in_loc
     """ File moved AND MODIFIED by A. New file placed by B in same location.
@@ -311,8 +318,8 @@ def test_movedmod_new_in_loc(remote): # old test 14. Extension of test_moved_new
     # Init
     testutil.write('A/file0',text='file0')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -342,7 +349,7 @@ def test_movedmod_new_in_loc(remote): # old test 14. Extension of test_moved_new
     # Finally
     assert len(testutil.compare_tree()) == 0
 
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_move_conflict_at_dest(remote): # old test 06
     """ File moved by both A and B to the same location """
     testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
@@ -359,8 +366,8 @@ def test_move_conflict_at_dest(remote): # old test 06
     testutil.write('A/file0',text='file0')
     testutil.write('A/file1',text='file1')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -385,7 +392,7 @@ def test_move_conflict_at_dest(remote): # old test 06
     # Finally
     assert len(testutil.compare_tree()) == 0
 
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_moved_deleted_same(remote): # old test 07
     """ Moved on one side and deleted on the other"""
     testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
@@ -402,8 +409,8 @@ def test_moved_deleted_same(remote): # old test 07
     testutil.write('A/file0',text='file0')
     testutil.write('A/file3',text='file3')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -426,7 +433,7 @@ def test_moved_deleted_same(remote): # old test 07
     # Finally
     assert len(testutil.compare_tree()) == 0
 
-@pytest.mark.parametrize("remote,AB", list(itertools.product(remotes,['A','B'])))
+@pytest.mark.parametrize("remote,AB", list(itertools.product(remotes + rclone,['A','B'])))
 def test_same_file_moved(remote,AB): # old test 08
     """ Same file moved to different locations"""
     if AB == 'A':
@@ -447,8 +454,8 @@ def test_same_file_moved(remote,AB): # old test 08
     # Init
     testutil.write('A/file0',text='file0')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -469,7 +476,7 @@ def test_same_file_moved(remote,AB): # old test 08
     # Finally
     assert len(testutil.compare_tree()) == 0
 
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_file_deleted_moved_on_other(remote): # Original test 09
     """ file1 is deleted on A but file2 --> file1 on B w/o modification (see test 19) """
     testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
@@ -486,8 +493,8 @@ def test_file_deleted_moved_on_other(remote): # Original test 09
     testutil.write('A/file0',text='file0')
     testutil.write('A/file1',text='file1')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -524,8 +531,8 @@ def test_file_deleted_replaced_with_move(remote): # Original test 19
     testutil.write('A/file0',text='file0')
     testutil.write('A/file1',text='file1')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -545,7 +552,7 @@ def test_file_deleted_replaced_with_move(remote): # Original test 19
     # Finally
     assert len(testutil.compare_tree()) == 0
 
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_file_replaced_deleted_other_prev_attr(remote):
     """
     file0 is replaced by file1 on A and file1 is deleted on B
@@ -560,13 +567,12 @@ def test_file_replaced_deleted_other_prev_attr(remote):
     os.makedirs(testpath)
     testutil = testutils.Testutils(testpath=testpath)
 
-
     # Init
     testutil.write('A/file0',text='file0')
     testutil.write('A/file1',text='file1')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -588,7 +594,7 @@ def test_file_replaced_deleted_other_prev_attr(remote):
     # Finally
     assert len(testutil.compare_tree()) == 0
 
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_new_and_deleted_file(remote): # Old test 10
     """File is created (one on both sides)  each different"""
     testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
@@ -605,8 +611,8 @@ def test_new_and_deleted_file(remote): # Old test 10
     testutil.write('A/file0',text='file0')
     testutil.write('A/file1',text='file1')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -631,7 +637,7 @@ def test_new_and_deleted_file(remote): # Old test 10
     # Finally
     assert len(testutil.compare_tree()) == 0
 
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_same_file_created(remote): # Old test 11
     """ Same file is created with the same content """
     testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
@@ -647,8 +653,8 @@ def test_same_file_created(remote): # Old test 11
     # Init
     testutil.write('A/other',text='other')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -663,13 +669,79 @@ def test_same_file_created(remote): # Old test 11
 
     # Check it -- Only need to check A
     assert testutil.exists('A/file.machineA')
-    assert testutil.exists('B/file.machineA')
     assert testutil.exists('A/file.machineB')
-    assert testutil.exists('B/file.machineB')
 
     # Finally
     assert len(testutil.compare_tree()) == 0
 
+@pytest.mark.parametrize("remote", remotes + rclone)
+def test_check_new_on_delete(remote):
+    """
+    Check when a new file is created as some programs do on save
+    
+    When true, the the file should be backed up but *not* marked for delete
+    unless using rclone which doesn't care about inodes so will always look
+    like the same file. (i.e. check_new_on_delete is always True on the remote)
+    
+    """
+    for check_new_on_delete in [True,False]:
+        testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
+                'test_dirs','test_check_new_on_delete')
+        try:
+            shutil.rmtree(testpath)
+        except:
+            pass
+        os.makedirs(testpath)
+        testutil = testutils.Testutils(testpath=testpath)
+    
+        testutil.write('A/myfileA',text='fileA')
+        testutil.write('A/myfileB',text='fileB')
+    
+        # Randomize Mod times
+        testutil.modtime_all()
+    
+        # Start it
+        config = testutil.get_config(remote=remote)
+        config.check_new_on_delete = check_new_on_delete
+        testutil.init(config) 
+    
+        # Apply actions
+        # Delete the file and make a new one with the same name. However, to
+        # prevent inode reuse from breaking, make as different file before delete
+        # and rename
+        testutil.write('A/myfileAt',text='fileA2')
+        testutil.write('B/myfileBt',text='fileB2')
+    
+        testutil.remove('A/myfileA')
+        testutil.remove('B/myfileB')
+    
+        testutil.move('A/myfileAt','A/myfileA')
+        testutil.move('B/myfileBt','B/myfileB')
+
+        # Sync
+        testutil.run(config)
+    
+        # Test
+        assert len(testutil.compare_tree()) == 0
+        assert testutil.read('A/myfileA') == 'fileA2'
+        assert testutil.read('A/myfileB') == 'fileB2'
+    
+        # Read the log
+            # Make sure it actually did the move and not just transfer
+        log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
+        log_path.sort()
+        log_txt = open(log_path[-1]).read()
+        
+        if check_new_on_delete:
+            assert 'backup: myfileA' in log_txt
+            assert 'backup: myfileB' in log_txt
+        elif remote  != 'rclone':
+            assert 'delete (w/ backup): myfileA' in log_txt
+            assert 'delete (w/ backup): myfileB' in log_txt    
+        else:
+            assert 'backup: myfileB' in log_txt # Since still looks like check_new_on_delete for remote 
+            assert 'delete (w/ backup): myfileA' in log_txt
+    
 @pytest.mark.parametrize("remote", remotes)
 def test_delete_file_in_folder(remote): # Old test 12
     """ file is deleted. Folder should remain """
@@ -686,8 +758,8 @@ def test_delete_file_in_folder(remote): # Old test 12
     testutil.write('A/dir/file',text='file')
     testutil.write('A/dir2/file2',text='file')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -724,8 +796,8 @@ def test_delete_folder(remote): # Old test 13
     # Init
     testutil.write('A/dir/file',text='file')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -767,8 +839,8 @@ def test_empty_dirs(remote): # NEW
     testutil.write('A/will_remove/deeper/file',text='file')
     testutil.write('A/will_remove2/deeper/even_deeper/file',text='file')
 
-    # copy over and delete file before starting
-    testutil.copy_tree()
+    # Randomize Mod times and delete file before starting
+    testutil.modtime_all()
 
     # Remove the emtpydir's file on A and the entire
     testutil.write('A/emptydir/deeper/tmp',text='file')
@@ -800,7 +872,7 @@ def test_empty_dirs(remote): # NEW
     assert os.listdir(os.path.join(testpath,'B')) == ['.PyFiSync'] # Otherwise empty
     
 
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_backups(remote): # Old test 15
     """ Backups before overwrite and delete. Both sides """
     testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
@@ -818,8 +890,8 @@ def test_backups(remote): # Old test 15
     testutil.write('A/fileAm',text='fileAm')
     testutil.write('A/fileBm',text='fileBm')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -848,7 +920,7 @@ def test_backups(remote): # Old test 15
     # Finally
     assert len(testutil.compare_tree()) == 0
 
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_exclusions(remote): # Old test 16
     """ test exclusion """
     testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
@@ -865,13 +937,13 @@ def test_exclusions(remote): # Old test 16
     testutil.write('A/skip_me',text='onA')
     testutil.write('A/skip_folder/file2',text='onA')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
+    testutil.init(config) # Run then add exclude
     config.excludes += ['skip_me','skip_folder/']
-    testutil.init(config)
 
     # Apply actions
     testutil.write('B/skip_me',text='onB',mode='a')
@@ -896,6 +968,7 @@ def test_exclusions(remote): # Old test 16
     assert ('disagree', 'skip_folder/file2') in comp
     assert ('disagree', 'skip_me') in comp
 
+# Rclone doesn't do inodes
 @pytest.mark.parametrize("remote", remotes)
 def test_moved_file_size_track(remote): # Old test 17
     """ test moved files with size tracking rather than birthtime on one side  with modifications"""
@@ -913,8 +986,8 @@ def test_moved_file_size_track(remote): # Old test 17
     testutil.write('A/file1',text='F1')
     testutil.write('A/file2',text='F2')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -965,7 +1038,7 @@ def test_moved_file_size_track(remote): # Old test 17
 
 
 
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_unicode_spaces(remote): # Old test 18
     """ test unicode and spaces in file names """
     testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
@@ -982,8 +1055,8 @@ def test_unicode_spaces(remote): # Old test 18
     testutil.write('A/unic°de.txt',text='u0')
     testutil.write('A/unic°deB.txt',text='uu2')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -1010,7 +1083,7 @@ def test_unicode_spaces(remote): # Old test 18
     # Finally
     assert len(testutil.compare_tree()) == 0
 
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_replace_deleted_with_new(remote): #old test 20
     """file deleted both sides but a new one is placed there (May be hard to
     test well if inodes are reused) """
@@ -1026,8 +1099,8 @@ def test_replace_deleted_with_new(remote): #old test 20
     # Init
     testutil.write('A/file0',text='A0')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -1069,8 +1142,8 @@ def test_symlinks(remote,symlinks):
     # Init
     testutil.write('A/file0',text='A0') # just to have a file
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -1139,8 +1212,8 @@ def test_remove_empty_folders(remote):
     # Init
     testutil.write('A/file0',text='A0')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -1166,7 +1239,8 @@ def test_remove_empty_folders(remote):
 
     # Finally
     assert len(testutil.compare_tree()) == 0
-    
+
+# Rclone passes this but I will not test it since we don't expect folders to work
 @pytest.mark.parametrize("remote", remotes)
 def test_empty_bc_excludes(remote):
     """ 
@@ -1184,8 +1258,8 @@ def test_empty_bc_excludes(remote):
     # Init
     testutil.write('A/a.txt',text='1')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -1224,7 +1298,7 @@ def test_empty_bc_excludes(remote):
     assert not os.path.exists(os.path.join(testpath,'B','dir1')) 
     assert not os.path.exists(os.path.join(testpath,'A','dir3'))
 
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_filename_characters_exclude(remote):
     """
     Characters such as $ (and maybe spaces in the future)?
@@ -1244,8 +1318,8 @@ def test_filename_characters_exclude(remote):
     testutil.write('A/plain_file',text='aa')
     testutil.write('A/dollar$mid',text='$$')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -1286,7 +1360,7 @@ def test_filename_characters_exclude(remote):
     assert len(diffs) == 4,"Unaccounted for missing item(s)"
 
 
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_move_to_exclude(remote):
     """
     Test that a file may be moved into an excluded name.
@@ -1308,8 +1382,8 @@ def test_move_to_exclude(remote):
     testutil.write('A/file2',text='a2')
     testutil.write('A/file3',text='a3')
     
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -1333,7 +1407,7 @@ def test_move_to_exclude(remote):
     
     assert len(diffs) == 2,"Unaccounted for missing item(s)"
    
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes+rclone)
 def test_move_path_track(remote):
     """
     Tests using `path` as a move attribute to disable moves.
@@ -1358,8 +1432,8 @@ def test_move_path_track(remote):
     testutil.write('A/fileB',text='BB')
     testutil.write('A/file',text='nothing')
     
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -1403,8 +1477,8 @@ def test_broken_links(remote): # old test 02
     # Init
     testutil.write('A/fileA',text='AA')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -1439,102 +1513,7 @@ def test_broken_links(remote): # old test 02
     assert len(re.findall('Remote Call returned warnings:',log_txt)) == N
     assert len(re.findall('ERROR: Could not find information on broken_link',log_txt)) == 2
 
-@pytest.mark.parametrize("remote,level", list(itertools.product(remotes,[0,1,2])))
-def test_git_exclude(remote,level):
-    """
-    Test with git exclusions at different levels
-    
-    level 0: git root is outside of the sync root
-    level 1: git root is the same as the sync root
-    level 2: git root is below the sync root
-    """
-    import subprocess
-    testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
-            'test_dirs','test_git_exclude/out0/')
-    try:
-        shutil.rmtree(testpath)
-    except:
-        pass
-    os.makedirs(testpath)
-    testutil = testutils.Testutils(testpath=testpath)
-
-    # Init
-    testutil.write('A/sub2/InGit1.txt',text='in1')
-    testutil.write('A/sub2/InGit2.txt',text='in2')
-    testutil.write('A/sub2/OutGit1.txt',text='out1')
-    testutil.write('A/sub2/OutGit2.txt',text='out2')
-    
-    # Add some more exclusions outside of git
-    testutil.write('A/allow.txt',text='a')
-    testutil.write('A/exclude1.txt',text='a')
-    testutil.write('A/exclude2.txt',text='a')
-    
-    # Init the git directory
-    if level == 0: # Above the sync dirs
-        # Copy then create the git repo
-        testutil.copy_tree()
-        gitroot = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
-            'test_dirs','test_git_exclude/out0')
-    elif level == 1: # Inside of the dirs
-        gitroot = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
-            'test_dirs','test_git_exclude/out0/A')     
-    elif level == 2:
-        gitroot = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
-            'test_dirs','test_git_exclude/out0/A/sub2')   
-    else:
-        raise ValueError('Not Valid level')
-        
-    cmd = [ 'cd {}',
-            'echo "Out*.txt">.gitignore',
-            'git init .',
-            'git add .',
-            'git commit -am"first"']
-    cmd = ';'.join(cmd).format(gitroot)
-    subprocess.call(cmd,shell=True)
-     
-        
-    # copy over if not level 0
-    if level>0:
-        testutil.copy_tree()  
-
-# 
-    # Start it
-    config = testutil.get_config(remote=remote)
-    config.git_exclude = True
-    config.excludes += ['[ae]xclude1.txt','exclude2.txt']
-    testutil.init(config)
-
-    # Apply actions
-    
-    testutil.write('A/sub2/InGit1.txt',text='in1-updatedA')
-    testutil.write('A/sub2/OutGit1.txt',text='out1-updatedA')
-
-    testutil.write('B/sub2/InGit2.txt',text='in1-updatedB')
-    testutil.write('B/sub2/OutGit2.txt',text='out1-updatedB')
-    
-    testutil.write('A/exclude2.txt',text='aa')
-    testutil.write('B/exclude1.txt',text='bb')
-    
-    # Sync
-    testutil.run(config)
-
-    # Check it -- Only need to check A
-    diffs = testutil.compare_tree()
-    
-    # The files should disagree
-    assert ('disagree', 'sub2/InGit1.txt') in diffs
-    assert testutil.read('A/sub2/InGit1.txt') == 'in1-updatedA'
-    
-    assert ('disagree', 'sub2/InGit2.txt') in diffs
-    assert testutil.read('B/sub2/InGit2.txt') == 'in1-updatedB'
-    
-    assert (u'disagree', u'exclude1.txt') in diffs
-    assert (u'disagree', u'exclude2.txt') in diffs
-    
-    # No other differences
-    assert len(diffs) == 4
-
-@pytest.mark.parametrize("remote", remotes)
+@pytest.mark.parametrize("remote", remotes + rclone)
 def test_pre_post_bash(remote):
     """ Testing the pre_sync_bash and post_sync_bash"""
     testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
@@ -1549,8 +1528,8 @@ def test_pre_post_bash(remote):
     # Init
     testutil.write('A/fileA',text='AA')
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -1570,14 +1549,6 @@ python -c "import sys;sys.stderr.write('error test\\n')" # Write to error
     
     testutil.init(config)
     
-    # Make sure the pre has not been called
-    assert not testutil.exists('A/from_bash2')
-    assert not testutil.exists('A/from_bash3')
-    
-    # Apply actions
-    
-    # none. Will be done by the pre and post sync
-     
     # Sync
     testutil.run(config)
 
@@ -1593,7 +1564,7 @@ python -c "import sys;sys.stderr.write('error test\\n')" # Write to error
     log_txt = open(log_path[-1]).read()
     assert len(re.findall(r'STDERR: *?> *? error test',log_txt.replace('\n',''),re.DOTALL)) == 1
 
-
+# - [ ] Need to check this test....
 @pytest.mark.parametrize("remote", remotes)
 def test_duplicate_sha1(remote): # old test 02    
     """ 
@@ -1625,8 +1596,8 @@ def test_duplicate_sha1(remote): # old test 02
     testutil.write('A/c1.txt',text=content3)
 
 
-    # copy over
-    testutil.copy_tree()
+    # Randomize Mod times
+    testutil.modtime_all()
 
     # Start it
     config = testutil.get_config(remote=remote)
@@ -1676,8 +1647,8 @@ def test_use_hashdb(remote): # This used to be test 01
         # Init
         testutil.write('A/file1',text='test01f1')
 
-        # copy over
-        testutil.copy_tree()
+        # Randomize Mod times
+        testutil.modtime_all()
 
         # Start it
         config = testutil.get_config(remote=remote)
@@ -1697,47 +1668,129 @@ def test_use_hashdb(remote): # This used to be test 01
             assert testutil.exists(os.path.join(testpath,'A','.PyFiSync','hash_db.json'))
             assert testutil.exists(os.path.join(testpath,'B','.PyFiSync','hash_db.json'))
 
+@pytest.mark.parametrize("remote", remotes)
+def test_dry_run(remote):
+    """ Test DRY RUN """
+    testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
+            'test_dirs','dry_run')
+    try:
+        shutil.rmtree(testpath)
+    except:
+        pass
+    os.makedirs(testpath)
+    testutil = testutils.Testutils(testpath=testpath)
+
+
+    # Init
+    testutil.write('A/moveA',text='moveA')
+    testutil.write('A/moveB',text='moveB')
+    
+    testutil.write('A/deleteA',text='deleteA')
+    testutil.write('A/deleteB',text='deleteB')
+    
+    testutil.write('A/modA',text='modA')
+    testutil.write('A/modB',text='modB')    
+    
+
+    # Randomize Mod times
+    testutil.modtime_all()
+
+    # Start it
+    config = testutil.get_config(remote=remote)
+    testutil.init(config)
+
+    # Apply actions and update config with bash 
+    config.pre_sync_bash="""\
+echo "PRE" > from_bashPRE
+    """    
+    config.post_sync_bash="""\
+echo "POST" > from_bashPOST
+    """    
+    
+    testutil.move('A/moveA','A/moveAA')
+    testutil.move('B/moveB','B/moveBB')
+    
+    testutil.remove('A/deleteA')
+    testutil.remove('B/deleteB')
+    
+    testutil.write('A/modA',text='mA',mode='a')
+    testutil.write('B/modB',text='mB',mode='a')   
+
+    # Sync
+    # Make sure nothing is changed -- including bash commands
+    pre_tree = set(testutil.tree(testutil.testpath))
+    testutil.run(config,flags=('--dry-run',))
+    post_tree = set(testutil.tree(testutil.testpath))
+    
+    assert pre_tree == post_tree
+    
+##############################
+### rclone Only
+#############################
+@pytest.mark.parametrize("remote",rclone)
+def test_imitate_rclone_hash(remote):
+    """ Test for incorectly specified or missing hash with rlcone """
+    for imitate in [True,False]:
+        testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
+                'test_dirs','test_imitate_rclone_hash')
+        assert remote == 'rclone'
+        try:
+            shutil.rmtree(testpath)
+        except:
+            pass
+        os.makedirs(testpath)
+        testutil = testutils.Testutils(testpath=testpath)
+
+
+        # Init
+        testutil.write('A/moveA',text='moveA')
+        testutil.write('A/moveB',text='moveB')
+
+        # Randomize Mod times
+        testutil.modtime_all()
+
+        # Start it
+        config = testutil.get_config(remote=remote)
+        config.move_attributesB = ['hash.NOPE']
+        config.imitate_missing_hash = imitate
+        
+        if imitate:
+            testutil.init(config)
+        else:
+            with pytest.raises(SystemExit):
+                testutil.init(config)
+            return
+            
+        # Apply actions
+        testutil.move('A/moveA','A/moveA_moved')
+        testutil.move('B/moveB','B/moveB_moved')
+
+        # Sync
+        testutil.run(config)
+
+        # Check it -- Only need to check A
+        # If it failed this wouldn't show but we'll check the logs to make sure
+        # it didn't move the file
+        assert testutil.exists('A/moveA_moved')
+        assert not testutil.exists('A/moveA')
+    
+        assert testutil.exists('B/moveB_moved')
+        assert not testutil.exists('B/moveB')
+    
+        # Make sure it actually did the move and not just transfer for A
+        log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
+        log_path.sort()
+        log_txt = open(log_path[-1]).read()
+        assert "No A >>> B transfers" in log_txt
+        assert "No A <<< B transfers" not in log_txt # NOT!
+        assert "moveB --> moveB_moved" not in log_txt # NOT!
+
+        assert len(testutil.compare_tree()) == 0
+
 
 if __name__=='__main__':    
+    test_nothing(False)
     sys.exit()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

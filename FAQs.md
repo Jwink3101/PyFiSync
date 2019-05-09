@@ -8,11 +8,13 @@ Plus, this was a great learning tool for python. Developing this was a lot of fu
 
 ## Are files encrypted?
 
-Using the default (and currently only) mode, the files are encrypted **in transit** via SSH. However, since this is not inherently a server-client model, the files are unencrypted at rest.
+Using the rsync mode, the files are encrypted **in transit** via SSH. However, since this is not inherently a server-client model, the files are unencrypted at rest.
 
 I suggest [Cryptomator](https://cryptomator.org/) for encrypted files as it is cross-platform and doesn't introduce much overhead and is efficient. It encrypts on a file-by-file basis (with obfuscated names) so changing a file will only require syncing that file (and some ancillary data). Speedups from rsync will not be realized.
 
 If using only macOS, encrypted disk images can also work well. If using encrypted disk images, I recommend using *sparse* disk image. Sparse images create bands (16mb if I recall correctly) so, while not file-by-file, they are more efficient but less than purely file-by-file. Regular encrypted disk images will, of course, work but *any* change will require syncing the entire thing. These are not recommended.
+
+Also, if using the rclone remote, you can use a crypt remote. Details are in the [rclone_b2][rclone_b2.md] guide.
 
 ## I set up SSH keys. Why is it asking me for my key password each time?
 
