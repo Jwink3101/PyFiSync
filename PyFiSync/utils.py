@@ -25,8 +25,6 @@ try:
 except ImportError:
     from Queue import Queue
 
-
-
 if sys.version_info >= (3,):
     unicode = str
     xrange = range
@@ -165,7 +163,7 @@ class configparser(object):
             remote = 'rsync'
         txt = self._filterconfig(txt,remote=remote)
         
-        exec(txt,config)       
+        exec_(txt,config)       
         
         for key,val in config.items():
             # Unike `parse`, there is no need to check for lists since 
@@ -190,7 +188,7 @@ class configparser(object):
         config = dict(pwprompt=getpass.getpass if pw else none)
         with open(self.configpath,'rt') as F:
             txt = F.read()
-            exec(txt,config)    
+            exec_(txt,config)    
         if getdict:
             return config
         
@@ -419,6 +417,47 @@ def imitate_hash(mydict):
     hasher.update(repr(mydict).encode('utf8'))
     return  hasher.hexdigest()
     
-    
+########################### six extracted codes ###########################
+# This is pulled from the python six module (see links below) to work 
+# around some python 2.7.4 issues
+# Links:
+#   https://github.com/benjaminp/six
+#   https://pypi.python.org/pypi/six
+#   http://pythonhosted.org/six/
+##############################################################################
+# Copyright (c) 2010-2018 Benjamin Peterson
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+#############################################################################
+if sys.version_info[0]>2:
+    exec('exec_ = exec')
+else:
+    def exec_(_code_, _globs_=None, _locs_=None):
+        """Execute code in a namespace."""
+        if _globs_ is None:
+            frame = sys._getframe(1)
+            _globs_ = frame.f_globals
+            if _locs_ is None:
+                _locs_ = frame.f_locals
+            del frame
+        elif _locs_ is None:
+            _locs_ = _globs_
+        exec("""exec _code_ in _globs_, _locs_""")
     
     
