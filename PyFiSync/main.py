@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20190510.0'
+__version__ = '20190512.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -36,6 +36,8 @@ from . import PFSwalk
 from .ldtable import ldtable
 from . import dry_run
 from . import remote_interfaces
+
+
 
 def init(path,remote='rsync'):
     """
@@ -322,7 +324,7 @@ def main(mode):
     log.space=2
     
     if config._DRYRUN:
-        dry_run.transfer(tqA2B,tqB2A,log)
+        dry_run.transfer(tqA2B,tqB2A,log,filesA,filesB)
     else:
         remote_interface.transfer(tqA2B,tqB2A)
     

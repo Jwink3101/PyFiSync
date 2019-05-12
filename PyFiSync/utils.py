@@ -107,9 +107,6 @@ class logger(object):
     def line(self):
         self.add('='*50,end='\n')
 
-# This is the main configuration parser. It will parse upon creation, though
-# in the future, the design will change that this will be an object that gets
-# parser later.
 class configparser(object):
     """This will eventually be the configuration"""
     default_path = os.path.join(os.path.dirname(__file__),'config_template.py')
@@ -417,6 +414,29 @@ def imitate_hash(mydict):
     hasher.update(repr(mydict).encode('utf8'))
     return  hasher.hexdigest()
     
+
+def bytes2human(byte_count,base=1024,short=True):
+    """
+    Return a value,label tuple
+    """
+    if base not in (1024,1000):
+        raise ValueError('base must be 1000 or 1024')
+    
+    labels = ['kilo','mega','giga','tera','peta','exa','zetta','yotta']
+    name = 'bytes'
+    if short:
+        labels = [l[0] for l in labels]
+        name = name[0]
+    labels.insert(0,'') 
+    
+    best = 0
+    for ii in range(len(labels)): 
+        if (byte_count / (base**ii*1.0)) < 1:
+            break
+        best = ii
+    
+    return byte_count / (base**best*1.0),labels[best] + name  
+
 ########################### six extracted codes ###########################
 # This is pulled from the python six module (see links below) to work 
 # around some python 2.7.4 issues
@@ -459,5 +479,8 @@ else:
         elif _locs_ is None:
             _locs_ = _globs_
         exec("""exec _code_ in _globs_, _locs_""")
+
+
+
     
     
