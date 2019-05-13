@@ -34,7 +34,9 @@ def transfer(tqA2B,tqB2A,log,filesA,filesB):
         log.add('(DRY-RUN) A >>> B')
         log.space = 4
         for item in tqA2B:
-            totA += filesA.query_one(path=item)['size']
+            file = filesA.query_one(path=item)
+            if file is not None:
+                totA += file['size']
             log.add('(DRY-RUN) ' + item)
         log.add('(DRY-RUN) Total Size: %0.2f %s' % utils.bytes2human(totA,short=False))
         
@@ -48,7 +50,9 @@ def transfer(tqA2B,tqB2A,log,filesA,filesB):
         log.add('(DRY-RUN) A <<< B')
         log.space = 4
         for item in tqB2A:
-            totB += filesB.query_one(path=item)['size']
+            file = filesB.query_one(path=item)
+            if file is not None:
+                totB += file['size']
             log.add('(DRY-RUN) ' + item)
         log.add('(DRY-RUN) Total Size: %0.2f %s' % utils.bytes2human(totB,short=False))
     else:
