@@ -101,6 +101,8 @@ class ssh_rsync(remote_interface_base):
         if log is None:
             log = utils.logger(silent=False,path=None)
         self.log = log
+        self._debug = getattr(config,'_debug',False)
+        
         if config.persistant:
             # Set up master connection for 600 seconds 
             self.sm = '-S /tmp/' + _randstr(5)
@@ -519,7 +521,7 @@ class Rclone(remote_interface_base):
             self.backup_path = os.path.join(
                     config.pathB,'.PyFiSync','backups',now)            
         
-        self._debug = False
+        self._debug = getattr(config,'_debug',False)
         self.rc_version = self.call(['--version'])
         
         
@@ -710,7 +712,13 @@ class Rclone(remote_interface_base):
         # Use two different methods depending on whether we need to stream
         # the result. This is to hopefully prevent issues with large
         # buffered responses
-        
+        if self._debug:
+            txt = ['DEBUG MODE','']
+            txt.append('rclone call')
+            txt.append(' '.join(cmd))
+            txt.append(' ')
+            self.log.add_err('\n'.join(txt))
+            
         if echo:
             stdout = subprocess.PIPE
             self.log.add('rclone\n  $ ' + ' '.join(cmd) + '\n')
@@ -741,10 +749,7 @@ class Rclone(remote_interface_base):
             self.log.add_err('rclone returned a non-zero exit code')
         
         if self._debug:
-            txt = ['DEBUG MODE','']
-            txt.append('rclone call')
-            txt.append(' '.join(cmd))
-            txt.append(' ')
+            txt = []
             txt.append('OUT:')
             txt.append(''.join(out))
             txt.append('ERR:')

@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20190512.1'
+__version__ = '20190516.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -199,7 +199,7 @@ def main(mode):
         log.add('(local)  B: {:s}'.format(config.pathB))
         remote = False
     else:
-        log.add('(remote) B: {:s}{:s}'.format(config.remote,config.pathB))
+        log.add('(remote) B: {:s} ({:s})'.format(config.pathB,config.remote))
 
     run_bash(pre=True)
 
@@ -806,7 +806,7 @@ def _unix_time(val):
     return datetime.datetime.fromtimestamp(float(val)).strftime('%Y-%m-%d %H:%M:%S')
 
 desc = """\
-Python (+ rsync) based intelligent file sync with automatic backups and file move/delete tracking.
+Python (+ rsync & rclone) based intelligent file sync with automatic backups and file move/delete tracking.
 """
 epi = ""
 
@@ -913,16 +913,14 @@ def cli(argv=None):
         log = utils.logger(path=path,silent=False)
         
         config._DRYRUN = args.dry_run
-                
+        config._debug = args.debug
+        
         _remote = remote_interfaces.get_remote_interface(config)
         
         if _remote is None:
             remote_interface = None
         else:
             remote_interface = _remote(config,log)
-        
-        if args.debug:
-            remote_interface._debug = True
             
         if args.no_backup:
             config.backup = False
