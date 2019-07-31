@@ -158,6 +158,90 @@ def test_simple_conflict(remote,mod_conflict):
     if mod_conflict == 'both':    
         assert files == set([u'file1.machineA', u'file1.machineB'])
 
+mod_conflicts = ['both','newer_tag']
+@pytest.mark.parametrize("remote,mod_conflict", list(itertools.product(remotes + rclone,mod_conflicts)))
+def test_multiple_conflict_tags(remote,mod_conflict): 
+    """ 
+    Test when a conflict is not resolved and there may be
+    multiple flags
+    """
+    
+    testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
+            'test_dirs','test_multiple_conflict_tags')
+    try:
+        shutil.rmtree(testpath)
+    except:
+        pass
+    os.makedirs(testpath)
+    testutil = testutils.Testutils(testpath=testpath)
+
+
+    # Init
+    testutil.write('A/file1',text='ONE')
+    testutil.write('A/file2',text='TWO')
+
+    # Randomize Mod times
+    testutil.modtime_all()
+
+    # Start it
+    config = testutil.get_config(remote=remote)
+    config.mod_conflict = mod_conflict
+    testutil.init(config)
+
+    # Apply actions
+    testutil.write('A/file1',text='A1',mode='a',time_adj=5)
+    testutil.write('B/file1',text='B1',mode='a',time_adj=0) 
+    
+    testutil.write('A/file2',text='A1',mode='a',time_adj=0)
+    testutil.write('B/file2',text='B1',mode='a',time_adj=5) 
+    
+    # Sync
+    testutil.run(config)
+    
+    # Do the mods again
+    testutil.write('A/file1',text='A2',mode='a',time_adj=5)
+    testutil.write('B/file1',text='B2',mode='a',time_adj=0) 
+    
+    testutil.write('A/file2',text='A2',mode='a',time_adj=0)
+    testutil.write('B/file2',text='B2',mode='a',time_adj=5) 
+    
+    testutil.run(config)
+
+    # tests
+    assert len(testutil.compare_tree()) == 0 # All the same so I only need to test one side
+    
+    if mod_conflict == 'newer_tag':
+        testdict = {
+            'file1': 'ONE\nA1\nA2',        # Updated on A both times
+            'file1.machineB': 'ONE\nB1',   # Updated on B once
+            'file1.machineB.1': 'ONE\nA1\nB2', # Updated on A then B
+    
+            'file2': 'TWO\nB1\nB2',        # Updated on B both times
+            'file2.machineA': 'TWO\nA1',   # Updated on A once
+            'file2.machineA.1': 'TWO\nB1\nA2', # Updated on B then A
+        }  
+        
+    elif mod_conflict == 'both':
+        testdict = {
+            'file1.machineA': 'ONE\nA1', # The appended 2's make a new file
+            'file1.machineA.1': 'A2',
+            'file1.machineB': 'ONE\nB1',
+            'file1.machineB.1': 'B2',
+            'file2.machineA': 'TWO\nA1',
+            'file2.machineA.1': 'A2',
+            'file2.machineB': 'TWO\nB1',
+            'file2.machineB.1': 'B2',
+        }
+    else: # No need to test 'A','B','newer' since they do not tag anything
+        assert False # Shouldn't be testing this
+        
+    assert len(testutil.tree(os.path.join(testutil.testpath,'A'))) == len(testdict)
+    for filename,text in testdict.items():
+        assert testutil.read('A/' + filename) == text
+        
+
+    
+
 # Include rclone in this since it will track with the sha-1 and none are modified
 @pytest.mark.parametrize("remote", remotes + rclone)
 def test_move_files(remote): # old test 03
@@ -214,6 +298,8 @@ def test_move_files(remote): # old test 03
 
     # Finally
     assert len(testutil.compare_tree()) == 0
+
+    
 
 @pytest.mark.parametrize("remote", remotes + rclone)
 def test_move_same_file(remote): # old test 04
@@ -1789,7 +1875,6 @@ def test_imitate_rclone_hash(remote):
 
 
 if __name__=='__main__':    
-    test_nothing(False)
     sys.exit()
 
 

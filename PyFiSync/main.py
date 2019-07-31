@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20190516.0'
+__version__ = '20190731.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -36,7 +36,6 @@ from . import PFSwalk
 from .ldtable import ldtable
 from . import dry_run
 from . import remote_interfaces
-
 
 
 def init(path,remote='rsync'):
@@ -578,7 +577,8 @@ def determine_file_transfers(filesA,filesB):
     txt2  = ('WARNING: Untracked file on {AB} and exists on {BA}. Transfer\n'
              '          File: {path:s}\n')
 
-
+    txt3 = "WARNING: Tag for conflict file '{path}' already exists on {AB}. Adding '.{ii}'"
+    
     action_queueA = [] # Actions to be performed ON A
     action_queueB = [] # "  " ON B
 
@@ -628,7 +628,30 @@ def determine_file_transfers(filesA,filesB):
         # happened and we want to proceed as a conflict
 
 
-        ###################
+        ################### conflict
+        
+        def get_newpath(path,AB):
+            """ 
+            Will return a newpath from path and name but making sure that it
+            doesn't exist in files
+            """
+            if AB == 'A':
+                name = config.nameA
+                files = filesA
+            else:
+                name = config.nameB
+                files = filesB
+            newpath = path + '.' + name
+            newpath0 = newpath
+            ii = 0
+            while files.query_one(path=newpath) is not None:
+                ii += 1
+                newpath = newpath0 + '.{}'.format(ii)
+                
+            if ii > 0:
+                log.add(txt3.format(AB=AB,path=path,ii=ii))
+            return newpath
+            
         
         res = config.mod_conflict
         log.add(txt1.format(path=path,mtimeA=mtimeA,mtimeB=mtimeB,res=res))
@@ -650,20 +673,23 @@ def determine_file_transfers(filesA,filesB):
             if fileA['mtime']>=fileB['mtime']:
                 tqA2B.append(path)
                 
-                newpath = path + '.' + config.nameB
+                newpath = get_newpath(path,'B') #path + '.' + config.nameB
+                
                 action_queueB.append({'move':[path,newpath]})
                 tqB2A.append(newpath)
             else:
                 tqB2A.append(path)
-                newpath = path + '.' + config.nameA
+                newpath = get_newpath(path,'A') #path + '.' + config.nameA
                 action_queueA.append({'move':[path,newpath]})
                 tqA2B.append(newpath)
         elif res == 'both':
-            action_queueA.append({'move':[path,path + '.' + config.nameA]})
-            tqA2B.append(path + '.' + config.nameA)
+            newpathA = get_newpath(path,'A')
+            action_queueA.append({'move':[path,newpathA]})
+            tqA2B.append(newpathA)
 
-            action_queueB.append({'move':[path,path + '.' + config.nameB]})
-            tqB2A.append(path + '.' + config.nameB)
+            newpathB = get_newpath(path,'B')
+            action_queueB.append({'move':[path,newpathB]})
+            tqB2A.append(newpathB)
         else:
             raise ValueError('Unrecognized mod_conflict resolution')
         
