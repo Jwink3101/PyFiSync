@@ -10,7 +10,7 @@ Plus, this was a great learning tool for python. Developing this was a lot of fu
 
 Using the rsync mode, the files are encrypted **in transit** via SSH. However, since this is not inherently a server-client model, the files are unencrypted at rest.
 
-I suggest [Cryptomator](https://cryptomator.org/) for encrypted files as it is cross-platform and doesn't introduce much overhead and is efficient. It encrypts on a file-by-file basis (with obfuscated names) so changing a file will only require syncing that file (and some ancillary data). Speedups from rsync will not be realized.
+I suggest [Cryptomator](https://cryptomator.org/) for encrypted files as it is cross-platform, doesn't introduce much overhead, and is efficient. It encrypts on a file-by-file basis (with obfuscated names) so changing a file will only require syncing that file (and some ancillary data). Speedups from rsync will not be realized.
 
 If using only macOS, encrypted disk images can also work well. If using encrypted disk images, I recommend using *sparse* disk image. Sparse images create bands (16mb if I recall correctly) so, while not file-by-file, they are more efficient but less than purely file-by-file. Regular encrypted disk images will, of course, work but *any* change will require syncing the entire thing. These are not recommended.
 
@@ -53,7 +53,7 @@ The fix is to add the following to `/etc/ssh/ssh_config` or `~/.ssh/config`:
 
 ## How does PyFiSync handle interruptions
 
-The short answer is: If you run it again, everything should be fine.
+The short answer is: If you run it again, everything *should* be fine.
 
 The slightly longer answer is that all actions are (more-or-less) safe since backups are made before anything is overwritten and moves are logged.
 
@@ -83,3 +83,13 @@ I hope this clears it up a bit!
 No. The remote file listing is handled via an SSH call and the transfers are via rsync. It *may* work in Windows Subshell but it has not been tested.
 
 Also, I suspect that file tracking will be less robust since there are no inode numbers. SHA1 should would to track but that adds a lot of overhead
+
+## Why can't I sync two rclone remotes
+
+This tool was built with rsync in mind and, in particular, syncing your local file system to a remote remote. The infrastructure was designed to be flexible for the remote only. With that said, I suspect I *could* make it work to handle two rclone remotes but I don't have the need. If there is interest, I may re-evaluate.
+
+## Why use `ldtable` instead of something like SQLite
+
+The simple answer is, at the time, I didn't know much SQL. And building out `ldtable` was a lot of fun. It is very useful for in-memory data queries. The more complex answer is that `ldtable` is much easier. Since I do not know all attributes until PyFiSync is instantiated, I would need a variable schema. And since I may or may not query on different combinations of attributes, I would need many table indicies.
+
+Also, `ldtable` has proven to be sufficiently performant. Even on my 60,000 item (~200gb) photo collection. The database is well within memory constraints. I may consider SQLite in the future though.

@@ -6,14 +6,13 @@ Python (+ rsync or rclone) based intelligent file sync with automatic backups an
 
 * Robust tracking of file moves
     * Especially powerful on MacOS, but works well enough on linux.
-* Rsynce Mode:
-    * Works out of the box with Python (tested on 2.7 and 3.6) for rsync
+* rsync Mode:
+    * Works out of the box with Python (tested on 2.7 and 3.5+) for rsync
     * Works over SSH for secure and easy connections with rsync mode
-    * Uses rsync for actual file transfers to save bandwidth
+    * Uses rsync for actual file transfers to save bandwidth and make use of existing file data
 * [rclone][rclone] mode: (beta!)
     * Can connect to a wide variety of cloud-services and offers encryption
 * Extensively tested for a **huge** variety of edge-cases
-
 
 ## Details
 
@@ -59,11 +58,7 @@ For rsync
 
 ### Empty Directories
 
-PyFiSync syncs files and therefore will *not* sync empty directories from one machine to the other. However, if, and only if, a directory is *made* empty by the sync, it will be deleted. That includes nested directories. In rclone mode, empty directories are not handled by PyFiSync
-
-## Dry Run
-
-All files are backed up by default before being ov
+PyFiSync syncs files and therefore will *not* sync empty directories from one machine to the other. However, if, and only if, a directory is *made* empty by the sync, it will be deleted. That includes nested directories. In rclone mode, empty directories are not handled at all by PyFiSync
 
 ## Install
 
@@ -153,11 +148,11 @@ A few notable limitations are as follows:
 * File move tracking
     * A file moved with a new name that is excluded will propagate as deleted. This is expected since the code no longer has a way to "see" the file on the one side.
     * A file that is moved on one side and deleted on the other will NOT have the deletion propagated regardless of modification
-    
+* Sync is based on modification time metadata. This is fairly robust but could still have issues. In rsync mode, even if PyFiSync decides to sync the files, it may just update the metadata. In that case, you may just want to disable backups. With rclone, it depends on the remote and care should be taken.    
+
 There is also a potential issue with the test suite. In order to ensure that the files are noted as changed (since they are all modified so quickly), the times are often adjusted via some random amounts. There is a *small* chance some tests could fail due to a small number not changing. Running the tests again should pass.
 
 See [rclone readme](rclone.md) for some rclone-related known issues
-
 
 ## Other Questions
 

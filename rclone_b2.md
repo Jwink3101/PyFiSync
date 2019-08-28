@@ -2,7 +2,7 @@
 
 (See the bottom for noted on using S3 instead of B2)
 
-B2 is a very inexpensive storage platform that is great for syncing. It does have a few limitations, notably the lack of server-side copy. As such, any "moves" are actually download+upload+delete.
+B2 is a very inexpensive storage platform that is great for syncing. It does have a few limitations, notably <strike>the lack of server-side copy. As such, any "moves" are actually download+upload+delete.</strike> (This is no longer the case for newer rclone versions with the latest B2 API. Therefore, some of these steps may not be necessary).
 
 As such, we make two major changes to our configuration:
 
