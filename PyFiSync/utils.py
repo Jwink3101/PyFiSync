@@ -12,7 +12,6 @@ import sys
 import datetime
 import re
 import zlib
-import base64
 from io import open
 import itertools
 import argparse
@@ -136,7 +135,6 @@ class configparser(object):
         else:
             self.parse_defaults(remote=remote)
         
-    
         # Some special things
         self.excludes = list(set(self.excludes + ['.PBrsync/','.PyFiSync/']))
 
@@ -254,7 +252,7 @@ def adler(filepath,BLOCKSIZE=2**20):
     with open(filepath, 'rb') as afile:
         buf = afile.read(BLOCKSIZE)
         while len(buf) > 0:
-            csum = zlib.crc32(buf,csum)
+            csum = zlib.adler32(buf,csum)
             buf = afile.read(BLOCKSIZE)
     csum = csum & 0xffffffff
     return csum
@@ -266,26 +264,10 @@ def to_unicode(txt,verbose=False):
     for objtype in [list,tuple,set]:
         if isinstance(txt,objtype):
             return objtype(to_unicode(a) for a in txt)
-    
-    if isinstance(txt,unicode): # JUST unicode in case py2 and bytes <==> str
+    if isinstance(txt,unicode):
         return txt
-    
-    try:
-        return unicode(txt,'utf8','strict')
-    except:
-        pass
-   
-    try:
-        import chardet
-        enc = chardet.detect(txt)['encoding']
-        return unicode(txt,encoding,'strict')
-    except:
-        pass
-    
-    for err,enc in itertools.product(['replace','ignore'],['utf8']):
-        return unicode(txt,enc,err)
-    
-    return txt
+    if hasattr(txt,'decode'):
+        return txt.decode('utf8')
 
 class RawSortingHelpFormatter(argparse.RawDescriptionHelpFormatter):
     """
@@ -332,8 +314,6 @@ def move_txt(src,dst):
         if s != d:
             break
         comb.append(s)
-    
-    
     sremain = _fjoin(srcs[len(comb):])
     dremain = _fjoin(dsts[len(comb):])
     comb = _fjoin(comb)
@@ -356,7 +336,6 @@ class ReturnThread(Thread):
     Like a regular thread except when you `join`, it returns the function
     result. And it assumes a target is always passed
     """
-    
     def __init__(self,**kwargs):
         self.target = kwargs.pop('target',False)
         if self.target is False:
