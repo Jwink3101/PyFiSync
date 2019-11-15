@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20190731.0'
+__version__ = '20191115.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -82,11 +82,11 @@ def reset_tracking(backup=True,empty='reset',set_time=False):
 
     log.add('Parsing files for A')
     
-    sha1A = 'sha1' in config.prev_attributesA + config.move_attributesA
-    sha1B = 'sha1' in config.move_attributesB + config.prev_attributesB
+    attribA = config.prev_attributesA + config.move_attributesA + [a[0] for a in config.mod_attributes]
+    attribB = config.move_attributesB + config.prev_attributesB + [a[1] for a in config.mod_attributes]
 
     PFSwalker = PFSwalk.file_list(config.pathA,config,log,
-                                  sha1=sha1A,empty=empty,
+                                  attributes=attribA,empty=empty,
                                   use_hash_db=config.use_hash_db)
     
     if remote:
@@ -98,7 +98,7 @@ def reset_tracking(backup=True,empty='reset',set_time=False):
         log.add('  Parsing files for B (remote)')
         log.prepend = '   '
         
-        filesB = remote_interface.file_list(config.move_attributesB + config.prev_attributesB,empty=empty)
+        filesB = remote_interface.file_list(attribB,empty=empty)
         filesA = loc_walk_thread.join()
         
         if filesB is None:
@@ -110,7 +110,7 @@ def reset_tracking(backup=True,empty='reset',set_time=False):
         filesA = PFSwalker.files()
         
         log.add('  Parsing files for B (local)')
-        _tmp = PFSwalk.file_list(config.pathB,config,log,sha1=sha1B,empty=empty,
+        _tmp = PFSwalk.file_list(config.pathB,config,log,attributes=attribB,empty=empty,
                                  use_hash_db=config.use_hash_db)
         filesB = _tmp.files()
         
@@ -206,12 +206,12 @@ def main(mode):
     log.add('Paring current file lists')
     log.add('  Parsing files for A (local)')
     
-    sha1A = 'sha1' in config.prev_attributesA + config.move_attributesA
-    sha1B = 'sha1' in config.move_attributesB + config.prev_attributesB
+    attribA = config.prev_attributesA + config.move_attributesA + [a[0] for a in config.mod_attributes]
+    attribB = config.move_attributesB + config.prev_attributesB + [a[1] for a in config.mod_attributes]
 
 
     PFSwalker = PFSwalk.file_list(config.pathA,config,log,
-                                  sha1=sha1A,empty='store',
+                                  attributes=attribA,empty='store',
                                   use_hash_db=config.use_hash_db)
     if remote:
         # Multithread it
@@ -222,7 +222,7 @@ def main(mode):
         log.add('  Parsing files for B (remote)')
         log.prepend = '   '
                 
-        filesB = remote_interface.file_list(config.move_attributesB + config.prev_attributesB,empty='store')        
+        filesB = remote_interface.file_list(attribB,empty='store')        
         filesA = loc_walk_thread.join()
     
         if filesB is None:
@@ -234,7 +234,7 @@ def main(mode):
         filesA = PFSwalker.files()
         
         log.add('  Parsing files for B (local)')
-        _tmp = PFSwalk.file_list(config.pathB,config,log,sha1=sha1B,empty='store',
+        _tmp = PFSwalk.file_list(config.pathB,config,log,attributes=attribB,empty='store',
                                  use_hash_db=config.use_hash_db)
         filesB = _tmp.files()
 
@@ -611,8 +611,19 @@ def determine_file_transfers(filesA,filesB):
 
         #########################
         
-        if abs(fileA['mtime'] - fileB['mtime']) <= config.mod_resolution:
-            continue # No change on either or within modify resolution
+        transfer = False
+        for mod_attribute in config.mod_attributes:
+            mod_attribute = tuple(mod_attribute)
+            if mod_attribute == ('mtime','mtime'): 
+                if abs(fileA['mtime'] - fileB['mtime']) <= config.mod_resolution:
+                    break
+            elif fileA[mod_attribute[0]] == fileB[mod_attribute[1]]:
+                break 
+        else: 
+            transfer = True
+        if not transfer:
+            continue
+            
         if fileA['mtime'] <= config.last_run and fileB['mtime'] >= config.last_run:
             # Modified on B
             tqB2A.append(path)

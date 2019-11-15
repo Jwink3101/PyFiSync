@@ -14,19 +14,23 @@ import os
 import sys
 import shutil
 import itertools
-from glob import glob
 import re
 from pprint import pprint
+import hashlib
+import json
+from glob import glob
+
 
 import pytest
 
 ## Specify whether to test remotely or locally...or both
-#remotes = [False]   # Just test locally
-#remotes = ['python2','python3']
+# remotes = [False]   # Just test locally
+# remotes = ['python2','python3']
 remotes = [False,'python2','python3']
 # remotes = ['python2']
 
 rclone = ['rclone'] 
+#rclone = []
 
 
 @pytest.mark.parametrize("remote", remotes+rclone)
@@ -287,9 +291,7 @@ def test_move_files(remote): # old test 03
     assert not testutil.exists('B/the/very/deep/folder/path/file')
 
     # Make sure it actually did the move and not just transfer
-    log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
-    log_path.sort()
-    log_txt = open(log_path[-1]).read()
+    log_txt = testutil.get_log_txt()
     assert "No A >>> B transfers" in log_txt
     assert "No A <<< B transfers" in log_txt
     assert "move: moveB --> ff/moveB_moved" in log_txt
@@ -813,10 +815,7 @@ def test_check_new_on_delete(remote):
         assert testutil.read('A/myfileB') == 'fileB2'
     
         # Read the log
-            # Make sure it actually did the move and not just transfer
-        log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
-        log_path.sort()
-        log_txt = open(log_path[-1]).read()
+        log_txt = testutil.get_log_txt()
         
         if check_new_on_delete:
             assert 'backup: myfileA' in log_txt
@@ -1097,9 +1096,7 @@ def test_moved_file_size_track(remote): # Old test 17
     testutil.run(config)
 
     # Check it -- Only need to check A
-    log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
-    log_path.sort()
-    log_txt = open(log_path[-1]).read()
+    log_txt = testutil.get_log_txt()
 
     # Should move
     assert len(re.findall('move: *file2 *--> *file22',log_txt)) == 1
@@ -1204,9 +1201,8 @@ def test_replace_deleted_with_new(remote): #old test 20
     # Check it -- Only need to check A
     assert testutil.read('A/file0') == 'A1'
 
-    log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
-    log_path.sort()
-    log_txt = open(log_path[-1]).read()
+
+    log_txt = testutil.get_log_txt()
     assert len(re.findall('WARNING: *File deleted on B but move.*\n.*\n.*\n *File: *file0?',log_txt,re.MULTILINE)) == 1
 
     # Finally
@@ -1317,9 +1313,7 @@ def test_remove_empty_folders(remote):
     # Check it -- Only need to check A
     assert testutil.read('A/file0') == 'A1'
 
-    log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
-    log_path.sort()
-    log_txt = open(log_path[-1]).read()
+    log_txt = testutil.get_log_txt()
 
     assert len(re.findall('WARNING: *File deleted on B but move.*\n.*\n.*\n *File: *file0?',log_txt,re.MULTILINE)) == 1
 
@@ -1540,9 +1534,7 @@ def test_move_path_track(remote):
     
     assert diffs == [],"tree did not sync" # Even w/o move tracking, it should still sync
 
-    log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
-    log_path.sort()
-    log_txt = open(log_path[-1]).read()
+    log_txt = testutil.get_log_txt()
     
     assert 'move: fileA --> fileAM' in log_txt # ['ino','size'] tracking shows move
     assert 'delete (w/ backup): fileB' in log_txt # ['path'] tracking do not show move
@@ -1587,9 +1579,7 @@ def test_broken_links(remote): # old test 02
     assert len(diffs) == 1
     
     # We also want to confirm that an error was printed to the screen
-    log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
-    log_path.sort()
-    log_txt = open(log_path[-1]).read()
+    log_txt = testutil.get_log_txt()
     
     if remote: # No warnings if not remote
         N = 2
@@ -1645,9 +1635,7 @@ python -c "import sys;sys.stderr.write('error test\\n')" # Write to error
     assert len(diffs) == 2
 
     # Make sure the STDERR is in the log
-    log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
-    log_path.sort()
-    log_txt = open(log_path[-1]).read()
+    log_txt = testutil.get_log_txt()
     assert len(re.findall(r'STDERR: *?> *? error test',log_txt.replace('\n',''),re.DOTALL)) == 1
 
 # - [ ] Need to check this test....
@@ -1716,11 +1704,14 @@ def test_use_hashdb(remote): # This used to be test 01
     """ 
     Tests that the hashdb is or isn't used. 
     
-    For the time being, this does not actually test to ensure the sha1 doesn't
-    get computed again. Only that the hashdb is created
+    Tests that (a) it is created and that (b) it is used by
+    altering it. Alter on B so that the remote invocation 
+    is also tested
+    
+    Also test altering the DB but then modifying the file so we re hash it
     
     """
-    for usedb in [True,False]:
+    for usedb in [False,True,'mod']:
         testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
                 'test_dirs','test_use_hashdb')
         try:
@@ -1740,19 +1731,128 @@ def test_use_hashdb(remote): # This used to be test 01
         config = testutil.get_config(remote=remote)
         config.move_attributesA += ['sha1']
         config.move_attributesB += ['sha1']
-        config.use_hash_db = usedb
+        config.use_hash_db = bool(usedb) # True and 'mod'
         testutil.init(config)
-
-        # Apply actions
-        #NONE
+        
+        ## Change the DB as a test to see that it wasn't rehashed
+        with open(os.path.join(testpath,'A','.PyFiSync','filesB.old')) as file: # Read from A
+            f = json.load(file)[0] # only 1 file
+            hash0 = f['sha1']
+        if usedb:
+            # Alter on B
+            with open(os.path.join(testpath,'B','.PyFiSync','hash_db.json')) as file:
+                db = json.load(file)
+            db[0]['sha1'] = '0'*40
+            with open(os.path.join(testpath,'B','.PyFiSync','hash_db.json'),'wt') as file:
+                json.dump(db,file)
+                        
+        # Apply actions. Modify the time to invalide the DB even though it *is* being used
+        if usedb == 'mod':
+            testutil.modtime_all()
 
         # Sync
         testutil.run(config)
         # Finally
         assert len(testutil.compare_tree()) == 0
-        if usedb:
+
+        with open(os.path.join(testpath,'A','.PyFiSync','filesB.old')) as file: # Read from A again
+            f = json.load(file)[0] # only 1 file
+            hash1 = f['sha1']
+            
+        if usedb is True: # NOT 'mod'
+            assert hash1 == '0'*40
             assert testutil.exists(os.path.join(testpath,'A','.PyFiSync','hash_db.json'))
             assert testutil.exists(os.path.join(testpath,'B','.PyFiSync','hash_db.json'))
+        else: # False or 'mod'
+            assert hash1 == hash0    
+        
+
+@pytest.mark.parametrize("remote", remotes) # not rclone
+def test_arbitrary_hashes(remote): 
+    """ 
+    Tests the support of arbitrary hashes.     
+    """
+    testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
+            'test_dirs','test_arbitrary_hashes')
+    try:
+        shutil.rmtree(testpath)
+    except:
+        pass
+    os.makedirs(testpath)
+    testutil = testutils.Testutils(testpath=testpath)
+
+    # Init
+    testutil.write('A/file1',text='test01f1')
+    testutil.write('A/file2',text='test')
+
+    # Randomize Mod times
+    testutil.modtime_all()
+
+    
+    # Start it
+    hashes = list(hashlib.algorithms_guaranteed) + ['adler','dbhash']
+    
+    config = testutil.get_config(remote=remote)
+    config.move_attributesA.extend(hashes)
+    config.move_attributesB.extend(hashes)
+    config.use_hash_db = True
+    testutil.init(config)
+
+    # Apply actions
+    #NONE
+
+    # Sync
+    testutil.run(config)
+    # Finally
+    assert len(testutil.compare_tree()) == 0
+
+@pytest.mark.parametrize("remote", remotes + rclone) 
+def test_hash_compare(remote): 
+    """ 
+    Tests comparison by hash. Just use SHA1 for now
+    """
+    testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
+            'test_dirs','test_hash_compare')
+    try:
+        shutil.rmtree(testpath)
+    except:
+        pass
+    os.makedirs(testpath)
+    testutil = testutils.Testutils(testpath=testpath)
+
+    # Init
+    testutil.write('A/file1',text='file1')
+    testutil.write('A/file2',text='file2')
+    testutil.write('A/file3',text='file3')
+
+    # Randomize Mod times
+    testutil.modtime_all()
+
+    # Start it
+    config = testutil.get_config(remote=remote)
+    if remote == 'rclone':
+        config.mod_attributes = [('sha1','hash.SHA-1')] # for rclone
+    else:
+        config.mod_attributes = [('sha1','sha1')] # for rsync remote
+    
+    config.use_hash_db = False
+    testutil.init(config)
+
+    # Apply actions
+    testutil.modtime_all() # File A should *not* transfer
+    testutil.write('B/file2',text='file2B')
+    testutil.write('A/file3',text='file3A')
+
+    # Sync
+    testutil.run(config)
+    
+    # Finally
+    assert len(testutil.compare_tree()) == 0 
+    
+    # make sure we didn't transfer the modified file
+    assert testutil.exists('A/file1')
+    assert not testutil.exists('A/file1.machineB')
+    assert not testutil.exists('A/file1.machineA')
 
 @pytest.mark.parametrize("remote", remotes)
 def test_dry_run(remote):
@@ -1864,9 +1964,7 @@ def test_imitate_rclone_hash(remote):
         assert not testutil.exists('B/moveB')
     
         # Make sure it actually did the move and not just transfer for A
-        log_path = glob(os.path.join(testpath,'A','.PyFiSync','logs','20*.log'))
-        log_path.sort()
-        log_txt = open(log_path[-1]).read()
+        log_txt = testutil.get_log_txt()
         assert "No A >>> B transfers" in log_txt
         assert "No A <<< B transfers" not in log_txt # NOT!
         assert "moveB --> moveB_moved" not in log_txt # NOT!

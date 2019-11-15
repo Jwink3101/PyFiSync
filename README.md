@@ -30,19 +30,22 @@ Move attributed are used to track if a file has moved while the `prev_attributes
 
 Note: On HFS+ (and maybe APFS?), macOS's file system, inodes are not reused quickly. On ext3 (Linux) they are recycled rapidly leading to issues when files are deleted and new ones are made. Do not use inodes alone on these systems
 
-Available attributes:
-
 #### Common attributes
 
 * `path` -- This essentially means that moves are not tracked. If a file has the same name, it is considered the same file
 * `size` -- File size. Do not use alone. Also, this attribute means that the file may not change between moves. See examples below
 * `mtime` -- When the file was modified. Use with `ino` to track files
 
-#### rsync attributes
+#### rsync and local attributes
+
+Attributes for the local machine and an rsync remote
 
 * `ino` (inode number)-- Track the filesystem inode number. May be safely used alone on HFS+ but not on ext3 since it reuses inodes. In that case, use with another attribute
-* `sha1` -- Very robust to track file moves but like `size`, requires the file not change. Also, slow to calculate (though, by default, they are not recalculated on every sync)
-* `birthtime` -- Use the `stat()` (via `os.stat()`) file create time. This does not exist on some linux machines, some python implementations (PyPy), and/or is unreliable
+* hashes -- Very robust to track file moves but like `size`, requires the file not change. Also, slow to calculate (though, by default, they are not recalculated on every sync). Options:
+    * `adler` -- Fast but less secure
+    * `dbhash` -- Used for dropbox. Useful if comparing on hash
+    * any `hashlib.algorithms_guaranteed`: `sha384`,`sha3_224`,`sha3_512`,`md5`,`sha512`,`sha3_256`,`blake2b`,`sha3_384`,`shake_128`,`blake2s`,`sha256`,`shake_256`,`sha1`,`sha224`
+* `birthtime` -- Use the file create time. This does not exist on some linux machines, some python implementations (PyPy), and/or is unreliable
 
 #### rclone attributes
 
@@ -55,6 +58,11 @@ For rsync
 * On macOS, the following is suggested: `[ino,birthtime]`
 * On linux, the following is suggested: `[inode,mtime]`
     * This means that **moved files should not be modified** on that side of the sync.
+
+#### Hashes
+
+As noted, any `hashlib.algorithms_guaranteed` is supported for rsync mode and the local machine. In order to save time, a database is used of the previous file. This can be turned off in the config forcing all of the files to be read and hashed again.
+
 
 ### Empty Directories
 

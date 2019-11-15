@@ -44,7 +44,7 @@ def fnmatch_mult(name,patterns):
 
 class file_list:
     def __init__(self,path,config,log,
-            sha1=False,adler32=False,
+            attributes=(),
             empty='store',use_hash_db=True):
         """
         Main interface to the walk. the final list will
@@ -59,8 +59,7 @@ class file_list:
         self.path = path
         self.config = config
         self.log = log
-        self.sha1 = sha1
-        self.adler32 = adler32
+        self.attributes = attributes
         self.use_hash_db = use_hash_db
         
         self.empty = empty
@@ -81,6 +80,8 @@ class file_list:
         # if the ['mtime','path','size'] are identical, no need to recalculate
         # the sha1 or adler of the file.
         
+        self.hashes = any(a in utils.HASHFUNS for a in self.attributes)
+        
         if self.hashes:
             self.load_hash_db()
         
@@ -98,13 +99,10 @@ class file_list:
         items = self._walk(self.path)   # Tuples of DirEnty,rootpath
         items = map(self._file_info,items)   # Dictionaries
         
-        if self.sha1:
-            # Need to also send the rootpath (self.path)
-            items = _map(self.add_sha1,zip(items,repeat(self.path)))
-        
-        if self.adler32:
-             # Need to also send the rootpath (self.path)
-            items = _map(self.add_adler32,zip(items,repeat(self.path)))
+        ## Here is where we add hashes
+        for attribute in self.attributes:
+            if attribute in utils.HASHFUNS:
+                items = _map(partial(self.add_hash,hashname=attribute),zip(items,repeat(self.path)))
          
          # Run it!
         result = list(items)
@@ -324,32 +322,26 @@ class file_list:
                 
             out_list.append(file)
         return out_list
+    
 
-    def add_sha1(self,file_rootpath):
+    def add_hash(self,file_rootpath,hashname=None):
+        """
+        Add the hash but check the db first. Note that if use_hash_db=False,
+        the load_hash_db made it empty so we won't find it in the query.
+        """
         file,rootpath = file_rootpath
         
         query = {k:file[k] for k in ['mtime','path','size']}
         dbitem = self.hash_db.query_one(**query)
-        if dbitem and 'sha1' in dbitem:
-            file['sha1'] = dbitem['sha1']
+        
+        if dbitem and hashname in dbitem:
+            file[hashname] = dbitem[hashname]
         else:
             fullpath = os.path.join(rootpath,file['path'])
-            file['sha1'] = utils.sha1(fullpath)
+            file[hashname] = utils.HASHFUNS[hashname](fullpath)
         
         return file          
                 
-    def add_adler32(self,file_rootpath):
-        file,rootpath = file_rootpath
-        
-        query = {k:file[k] for k in ['mtime','path','size']}
-        dbitem = self.hash_db.query_one(**query)
-        if dbitem and 'adler32' in dbitem:
-            file['adler32'] = dbitem['adler32']
-        else:
-            fullpath = os.path.join(rootpath,file['path'])
-            file['adler32'] = utils.adler32(fullpath)
-        
-        return file              
 
     def load_hash_db(self):
         hash_db = list()
@@ -371,16 +363,7 @@ class file_list:
             pass
         with open(hash_path,'wt',encoding='utf8') as F:
             F.write(utils.to_unicode(json.dumps(files)))
-
-    @property
-    def hashes(self):
-        """do you compute any file hashes"""
-        return any([self.adler32,self.sha1])
-        
-
-       
-                        
-
+                    
 def _relpath(*A,**K):
     """
     Return the results of os.relpath but remove leading ./

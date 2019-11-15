@@ -8,6 +8,8 @@ import random
 import string
 import shutil
 from pprint import pprint
+from glob import glob
+
 
 def add_module():
     
@@ -202,7 +204,12 @@ class Testutils(object):
         if mode == 'sync':
             cmd = ['sync'] + list(flags) + [pathA]
             PyFiSync.cli(cmd)
-        
+    
+    def get_log_txt(self,AB='A'):
+        log_path = glob(os.path.join(self.testpath,AB,'.PyFiSync','logs','20*.log'))
+        log_path.sort()
+        with open(log_path[-1]) as l: # latest one
+            return l.read() 
     
 def randstr(N=10):
     return ''.join(random.choice(string.lowercase+'0123456789') for _ in xrange(10))

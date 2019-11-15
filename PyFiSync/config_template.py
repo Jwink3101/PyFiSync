@@ -74,7 +74,7 @@ rclone_flags = ['--transfers', '32','--fast-list','--checkers','10']
 # so instead, we can *just* backup via a local copy
 rclone_backup_local = False
 
-# Some remote (e.g. S3) do not provide hashes for all files (such as those
+# Some remotes (e.g. S3) do not provide hashes for all files (such as those
 # uploaded with multi-part). As such PyFiSync can imitate a hash when missing
 # based on the other metadata (so it cannot track remote moves). Warning: if
 # this is set with an incorrectly specified hash, (a) the screen will fill with
@@ -86,10 +86,13 @@ imitate_missing_hash = False
 # File Settings:
 # move_attributes specify which attributes to determine a move or previous file.
 # Options for local and rsync remote 
-#   'path','ino','size','sha1','birthtime','mtime'
+#   'path','ino','size','birthtime','mtime' 'adler','dbhash', PLUS any 
+#   `hashlib.algorithms_guaranteed`
+# 
 # Options for rclone remotes: 'path','size','mtime', and hashes as noted in the 
-#          readme
+# readme
 #
+
 # <rsync>
 # Prev File Suggestions (to determine if a file is new or it's only mod time
 #   ['ino','path']
@@ -133,6 +136,18 @@ move_conflict = 'A'     # 'A' or 'B': When moves are conflicting
 # 'newer_tag' -- Keep the newer version un-named and tag the older
 mod_conflict = 'both'
 mod_resolution = 2.5    # (s) How much time difference is allowed between files
+
+# Specify attributes to comprare from A and B. Must specify as a list of
+# (attribA,attribB) tuple, See the examples. Note that `mtime` will use the
+# mod_resolution time
+mod_attributes = [('mtime','mtime')]
+
+# examples:
+# mod_attributes = [('sha1','sha1')] # for rsync remote
+# mod_attributes = [('sha1','hash.SHA-1')] # for rclone
+# mod_attributes = [('dbhash','hash.DropboxHash')] # dropbox rclone
+
+
 
 # Symlinked directories are ALWAYS follow unless excluded. However, if 
 # copy_symlinks_as_links=False, symlinked files sync their referent (and 

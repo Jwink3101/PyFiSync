@@ -419,7 +419,6 @@ class ssh_rsync(remote_interface_base):
             config = utils.configparser()
             config.pathA = path
 
-            sha1 = 'sha1' in remote_config['attributes']
             empty = remote_config['empty']
             config.copy_symlinks_as_links = remote_config['copy_symlinks_as_links']
             config.excludes = list(set(config.excludes + remote_config['excludes']))
@@ -428,7 +427,9 @@ class ssh_rsync(remote_interface_base):
             # Generate the list. This may raise errors so do not start
             # capture until later
             log = utils.logger(silent=True,path=None)
-            _tmp = PFSwalk.file_list(path,config,log,sha1=sha1,empty=empty,
+            _tmp = PFSwalk.file_list(path,config,log,
+                                    attributes=remote_config['attributes'],
+                                    empty=empty,
                                     use_hash_db=config.use_hash_db)
             flist = _tmp.files()
 

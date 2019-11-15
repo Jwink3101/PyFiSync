@@ -14,7 +14,7 @@ I suggest [Cryptomator](https://cryptomator.org/) for encrypted files as it is c
 
 If using only macOS, encrypted disk images can also work well. If using encrypted disk images, I recommend using *sparse* disk image. Sparse images create bands (16mb if I recall correctly) so, while not file-by-file, they are more efficient but less than purely file-by-file. Regular encrypted disk images will, of course, work but *any* change will require syncing the entire thing. These are not recommended.
 
-Also, if using the rclone remote, you can use a crypt remote. Details are in the [rclone_b2][rclone_b2.md] guide.
+Also, if using the rclone remote, you can use a crypt remote. Details are in the [rclone_b2](rclone_b2.md) guide.
 
 ## I set up SSH keys. Why is it asking me for my key password each time?
 
@@ -93,3 +93,30 @@ This tool was built with rsync in mind and, in particular, syncing your local fi
 The simple answer is, at the time, I didn't know much SQL. And building out `ldtable` was a lot of fun. It is very useful for in-memory data queries. The more complex answer is that `ldtable` is much easier. Since I do not know all attributes until PyFiSync is instantiated, I would need a variable schema. And since I may or may not query on different combinations of attributes, I would need many table indicies.
 
 Also, `ldtable` has proven to be sufficiently performant. Even on my 60,000 item (~200gb) photo collection. The database is well within memory constraints. I may consider SQLite in the future though.
+
+## When should I use rsync+SSH vs rclone?
+
+First of all, if you want *anything* other than ssh or local, you *need* to use rclone.  If you plan to use SFTP in rclone, use the ssh+rsync mode!
+
+If you are interested in SSH-based remotes, you are almost universally better off using the rsync+SSH mode. First and foremost, rclone does not support any kind of transfer deduplication while rsync is built around it! With rsync, if only a small part of the file changes, only those changes (plus some overhead) are transfered. 
+
+Furthermore, in ssh+rsync mode, you can have things like a hash database (if set and using hashes) to greatly speed things up. And, all opperations are done on a persistant tunnel.
+
+## Why do you still support Python 2?
+
+When I first wrote PyFiSync, I didn't use Python 3! Part of that was because at work, I was limited to Python 2 and part of it was just that I learned on Python 2. However, when I made the transition to Python 3 for my own stuff, I made PyFiSync compatible with both.
+
+At this point, it is pretty easy to maintain that. If in the future I want to use a Python 3 only feature, I will probably just drop Python 2.
+
+
+
+
+
+
+
+
+
+
+
+
+

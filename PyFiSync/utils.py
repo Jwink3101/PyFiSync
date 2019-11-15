@@ -18,6 +18,7 @@ import argparse
 import copy
 from threading import Thread
 import getpass
+from functools import partial
 
 try:
     from queue import Queue
@@ -223,23 +224,26 @@ class configparser(object):
             config = re.sub(regex,repr,config,flags=re.MULTILINE|re.DOTALL)
         return config
 
-def sha1(filepath,BLOCKSIZE=2**20):
+def hashlibhash(filepath,BLOCKSIZE=1*1024**2,name='sha1'):
     """
     http://pythoncentral.io/hashing-files-with-python/
     
-    2**20: 1 mb
-    2**12: 4 kb
+    1024*1024: 1 mb
+    4*1024: 4 kb
     
     """
-    hasher = hashlib.sha1()
+    hasher = hashlib.new(name)
     with open(filepath, 'rb') as afile:
         buf = afile.read(BLOCKSIZE)
         while len(buf) > 0:
             hasher.update(buf)
             buf = afile.read(BLOCKSIZE)
-    return hasher.hexdigest()
-
-def adler(filepath,BLOCKSIZE=2**20):
+    if name.startswith('shake'):
+        return hasher.hexdigest(32)
+    else:
+        return hasher.hexdigest()
+        
+def adler(filepath,BLOCKSIZE=1*1024**2):
     """
     Create an additive adler32 checksum. Faster than sha1.
 
@@ -255,7 +259,30 @@ def adler(filepath,BLOCKSIZE=2**20):
             csum = zlib.adler32(buf,csum)
             buf = afile.read(BLOCKSIZE)
     csum = csum & 0xffffffff
-    return csum
+    return hex(csum)
+
+def dropboxhash(filename):
+    """
+    Compute the dropbox hash of a given file. See [1] for details
+    This was tested on thier example and against rclone
+    
+    [1]: https://www.dropbox.com/developers/reference/content-hash
+
+    """
+    subhashes = []
+    with open(filename,'rb') as file:
+        while True:
+            buf = file.read(4*1024**2)
+            if len(buf) == 0:
+                break
+            subhashes.append(hashlib.sha256(buf).digest())
+    return hashlib.sha256(b''.join(subhashes)).hexdigest()
+
+HASHFUNS = {
+    'adler':adler,
+    'dbhash':dropboxhash}
+for name in hashlib.algorithms_guaranteed:
+    HASHFUNS[name] = partial(hashlibhash,name=name)
 
 def to_unicode(txt,verbose=False):
     """
