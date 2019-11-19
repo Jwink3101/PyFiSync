@@ -2,6 +2,10 @@
 
 This is for *major* changes only; especially ones that break or change functionality
 
+## 20191119:
+
+Minor bug fix for ssh+rsync backend where the default excludes (e.g. `.git`) were being applied even when they were explicitly *not* intended to be excluded.
+
 ## 20191115:
 
 This change is all about using file hashes.

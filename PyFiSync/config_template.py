@@ -187,7 +187,9 @@ use_hash_db = True
 #
 # Specify as a single list.
 # These are suggestions. They can be included if desired
-excludes = ['.DS_Store','.git/','Thumbs.db']
+
+# excludes = ['.DS_Store','.git/','Thumbs.db'] # Suggested
+excludes = []
 
 # The following can be used to perform certain tasks pre and post sync.
 # Called the root of the syn direcotory (i.e. they start with 

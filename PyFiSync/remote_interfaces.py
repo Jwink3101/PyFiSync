@@ -421,7 +421,7 @@ class ssh_rsync(remote_interface_base):
 
             empty = remote_config['empty']
             config.copy_symlinks_as_links = remote_config['copy_symlinks_as_links']
-            config.excludes = list(set(config.excludes + remote_config['excludes']))
+            config.excludes = list(set(remote_config['excludes'])) # do *not* use default excludes
             config.use_hash_db = remote_config['use_hash_db']
             
             # Generate the list. This may raise errors so do not start

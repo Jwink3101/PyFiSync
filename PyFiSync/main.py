@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20191115.0'
+__version__ = '20191119.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 

@@ -1021,6 +1021,7 @@ def test_exclusions(remote): # Old test 16
     testutil.write('A/transfer_me',text='trans')
     testutil.write('A/skip_me',text='onA')
     testutil.write('A/skip_folder/file2',text='onA')
+    testutil.write('A/.git/GITFILE',text='git stuff')
 
     # Randomize Mod times
     testutil.modtime_all()
@@ -1029,10 +1030,12 @@ def test_exclusions(remote): # Old test 16
     config = testutil.get_config(remote=remote)
     testutil.init(config) # Run then add exclude
     config.excludes += ['skip_me','skip_folder/']
+    config.excludes.remove('.git/')
 
     # Apply actions
     testutil.write('B/skip_me',text='onB',mode='a')
     testutil.write('B/skip_folder/file2',text='onB',mode='a')
+    testutil.write('B/.git/GITFILE',text='updated',mode='w') # Make sure .git is *not* excluded remotely
 
     # Sync
     testutil.run(config)
@@ -1046,6 +1049,8 @@ def test_exclusions(remote): # Old test 16
     assert testutil.read('A/skip_folder/file2')=='onA','d'
     assert testutil.read('B/skip_folder/file2')=='onA\nonB','e'
     # test16/skip_folder/file2 is skipped in final check
+
+    assert testutil.read('A/.git/GITFILE') == 'updated'
 
     # Finally
     comp = testutil.compare_tree()
