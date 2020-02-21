@@ -654,7 +654,7 @@ class Rclone(remote_interface_base):
             
             newargs = args[:]
             newargs.extend(['-v','--stats-one-line'])
-            newargs.extend(['copy','--include-from','{}'.format(tmp_file)])
+            newargs.extend(['copy','--files-from','{}'.format(tmp_file)])
             newargs.extend([config.pathA,config.pathB])
             
             log.space=1
@@ -679,7 +679,7 @@ class Rclone(remote_interface_base):
             
             newargs = args[:]
             newargs.extend(['-v','--stats-one-line'])
-            newargs.extend(['copy','--include-from','{}'.format(tmp_file)])
+            newargs.extend(['copy','--files-from','{}'.format(tmp_file)])
             newargs.extend([config.pathB,config.pathA])
 
             log.space=1

@@ -222,6 +222,12 @@ class configparser(object):
                 repr = ''
             regex = r'^#[\ \t]*?\<FLAG\>(.*?)#[\ \t]*?\<[\/\\]FLAG\>'.replace('FLAG',rem)
             config = re.sub(regex,repr,config,flags=re.MULTILINE|re.DOTALL)
+        
+        # Remove more than one empty line from the above replacements
+        # This can be done with regex but easier with python.
+        config = '\n'.join(c.rstrip() for c in config.split('\n')) # All empty lines are blank
+        while '\n\n\n' in config:
+            config = config.replace('\n\n\n','\n\n')
         return config
 
 def hashlibhash(filepath,BLOCKSIZE=1*1024**2,name='sha1'):
@@ -259,7 +265,7 @@ def adler(filepath,BLOCKSIZE=1*1024**2):
             csum = zlib.adler32(buf,csum)
             buf = afile.read(BLOCKSIZE)
     csum = csum & 0xffffffff
-    return hex(csum)
+    return ('0'*8 + hex(csum)[2:])[-8:] # Preceding 0s
 
 def dropboxhash(filename):
     """

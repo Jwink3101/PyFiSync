@@ -172,7 +172,6 @@ check_new_on_delete = True
 # case, though rare
 use_hash_db = True
 
-
 ## Exclusions.
 # * If an item ends in `/` it is a folder exclusion
 # * If an item starts with `/` it is a full path relative to the root

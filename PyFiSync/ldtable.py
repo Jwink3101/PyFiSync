@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from __future__ import unicode_literals
 
-__version__ = "20180628"
+__version__ = "20191123"
 __author__ = "Justin Winokur"
 
 import copy
@@ -106,9 +106,7 @@ class ldtable(object):
         # Add the items
         for item in items:
             self.add(item)
-        
-        self._i = 0 # Counter for iterator if not called with iteritems
-        
+                
         self._time = time.time()
     
         # Edge case: No items
@@ -425,14 +423,6 @@ class ldtable(object):
             self._ix.difference_update([ix])
             self.N -= 1
     
-    def items(self):
-        """
-        Return a list of items.
-        """
-        for item in self._list:
-            if item is None:
-                continue
-            yield item
             
     @property
     def Qobj(self):
@@ -575,16 +565,8 @@ class ldtable(object):
     __call__ = query
     
     def __iter__(self):
-        return self
-
-    def __next__(self):
-        while self._i < len(self._list):
-            self._i += 1 # Increment it but then search back
-            if self._list[self._i-1] is not None:
-                return self._list[self._i-1]
-        raise StopIteration()
-    next = __next__ # For compatability
-    
+        return (item for item in self._list if item is not None)
+    items = __iter__
     
 def _makelist(input):
     if isinstance(input,list):

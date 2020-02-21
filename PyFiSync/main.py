@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20191119.0'
+__version__ = '20200221.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -36,7 +36,6 @@ from . import PFSwalk
 from .ldtable import ldtable
 from . import dry_run
 from . import remote_interfaces
-
 
 def init(path,remote='rsync'):
     """
