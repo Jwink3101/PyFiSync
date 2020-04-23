@@ -10,9 +10,7 @@ First set up ssh keys on your *local* machine:
 
     $ cat ~/.ssh/id_rsa.pub | ssh user@remote-system "mkdir -p ~/.ssh && cat >>  ~/.ssh/authorized_keys" 
 
-I will assume that `PyFiSync` is in the path or an alias has been set up:
-
-    $ PyFiSync init path/to/sync_dir
+I will assume that `PyFiSync` has been installed on **both** machines. See [the FAQs](FAQs.md) if there is an issue with paths on the remote machines. It is likely due to `.bashrc` not being loaded properly.
 
 Then modify the config file. All options are commented.
 

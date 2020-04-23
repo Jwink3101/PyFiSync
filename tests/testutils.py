@@ -154,15 +154,17 @@ class Testutils(object):
             config = utils.configparser(remote='rsync')
             if remote:
                 config.userhost = os.environ['USER'] + '@localhost'
+                
+                # Specify the full executable to make sure not using an installed copy
                 if remote == 'python2':
-                    config.remote_program = 'python2'
+                    exe = 'python2'
                 elif remote == 'python3':
-                    config.remote_program = 'python3'
+                    exe = 'python3'
+                pfs_path = os.path.normpath(os.path.join(os.path.dirname(__file__),'..','PyFiSync.py')) 
+                config.remote_exe = '{} {}'.format(exe,pfs_path)
             else:
                 config.userhost = ''
-            # This will need to change when/if there is no longer the PyFiSync.py
-            # file (using, say, entry-points)
-            config.PyFiSync_path = os.path.normpath(os.path.join(os.path.dirname(__file__),'..','PyFiSync.py'))        
+            
         
         config.excludes += ['.DS_Store','.git/','Thumbs.db']
         config.pathA = os.path.join(self.testpath,'A')

@@ -102,6 +102,25 @@ If you are interested in SSH-based remotes, you are almost universally better of
 
 Furthermore, in ssh+rsync mode, you can have things like a hash database (if set and using hashes) to greatly speed things up. And, all opperations are done on a persistant tunnel.
 
+## I installed PyFiSync on the remote computer but I am getting an error.
+
+If you are getting a `bash: PyFiSync: command not found` error, it is likely because the remote machine either doesn't have PyFiSync installed or there is an issue with your `.bashrc` and/or `.bash_profile`.
+
+If your paths are set up in `.bash_profile`, move them to `.bashrc` and add the following to `.bash_profile`:
+```bash
+if [ -f ~/.bashrc ]; then
+  . ~/.bashrc
+fi
+```
+In addition, some versions of linux add the following line(s) to the `.bashrc`:
+```bash
+# If not running interactively, don't do anything
+[ -z "$PS1" ] && return
+```
+You need to comment out that second line or still set up paths.
+
+Finally, you can instead specify the full path in the config file with `remote_exe`
+
 ## Why do you still support Python 2?
 
 When I first wrote PyFiSync, I didn't use Python 3! Part of that was because at work, I was limited to Python 2 and part of it was just that I learned on Python 2. However, when I made the transition to Python 3 for my own stuff, I made PyFiSync compatible with both.

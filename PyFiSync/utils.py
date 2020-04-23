@@ -184,7 +184,13 @@ class configparser(object):
         config = dict(pwprompt=getpass.getpass if pw else none)
         with open(self.configpath,'rt') as F:
             txt = F.read()
+            # Make sure this is executed from the base path
+            # but then switch back just in case it messes up other stuff
+            pwd0 = os.getcwd()   
+            os.chdir(self.sync_dir)         
             exec_(txt,config)    
+            os.chdir(pwd0)
+            
         if getdict:
             return config
         
@@ -448,6 +454,13 @@ def bytes2human(byte_count,base=1024,short=True):
         best = ii
     
     return byte_count / (base**best*1.0),labels[best] + name  
+
+def file_summary(files):
+    N = len(files)
+    s = sum(f['size'] for f in files if f)
+    s = bytes2human(s)
+    return "{:d} files, {:0.2f} {:s}".format(N,s[0],s[1])
+
 
 ########################### six extracted codes ###########################
 # This is pulled from the python six module (see links below) to work 

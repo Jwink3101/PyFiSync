@@ -19,7 +19,7 @@ from pprint import pprint
 import hashlib
 import json
 from glob import glob
-
+import subprocess
 
 import pytest
 
@@ -1642,6 +1642,56 @@ python -c "import sys;sys.stderr.write('error test\\n')" # Write to error
     # Make sure the STDERR is in the log
     log_txt = testutil.get_log_txt()
     assert len(re.findall(r'STDERR: *?> *? error test',log_txt.replace('\n',''),re.DOTALL)) == 1
+
+def test_pwd_of_config_eval(): # This used to be test 01
+    """ Test that the config file is evaluated from the test dir """
+    
+    testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
+            'test_dirs','evalpath')
+    try:
+        shutil.rmtree(testpath)
+    except:
+        pass
+    os.makedirs(testpath)
+    testutil = testutils.Testutils(testpath=testpath)
+
+
+    # Init
+    testutil.write('A/file1',text='test01f1')
+    # Randomize Mod times
+    testutil.modtime_all()
+    # Start it
+    config = testutil.get_config(remote=False)
+    config.move_attributesA += ['sha1']
+#     config.persistant = True
+    testutil.init(config)
+
+    # Apply actions
+    #NONE
+
+    # Sync
+    testutil.run(config)
+
+    # Test calling it externally from different paths
+    PFSfile = os.path.abspath(os.path.join(os.path.dirname(PyFiSync.__file__),'../PyFiSync.py'))
+    exe = sys.executable
+    syncdir = os.path.abspath(os.path.join(testpath,'A'))
+    
+    outpath = os.path.join(testpath,'cwd.txt')
+    
+    configfile = os.path.join(syncdir,'.PyFiSync/config')
+    with open(configfile,'at') as file:
+        print('import os',file=file)
+        print('with open("{}","wt") as file: file.write(os.path.abspath(os.getcwd()))'.format(outpath),file=file)
+    
+    # call from home
+    subprocess.call([exe,PFSfile,syncdir],cwd=os.path.expanduser('~'))
+    
+    with open(outpath,'rt') as file:
+        cwd = file.read().strip()
+    assert cwd == syncdir
+
+
 
 # - [ ] Need to check this test....
 @pytest.mark.parametrize("remote", remotes)

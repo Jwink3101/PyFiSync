@@ -122,20 +122,22 @@ class ssh_rsync(remote_interface_base):
         config = self.config
         log = self.log
 
-
         # Construct the command
         cmd = 'ssh {sm} -p {ssh_port:d} -q {userhost:s} "'.format(sm=self.sm,**config.__dict__)
 
-        # construct the call cmd
-        if len(config.PyFiSync_path) == 0:
-            cmd += 'PyFiSync _api file_list"'
-        else:
-            cmd += config.remote_program + ' '
-            if any(config.PyFiSync_path.endswith('PyFiSync'+ext) for ext in ['','.py']):
-                cmd += config.PyFiSync_path + ' _api file_list"'
+        if hasattr(config,'PyFiSync_path') and hasattr(config,'remote_program'):
+            log.add("DEPRECATION WARNING: 'PyFiSync_path' and 'remote_program' are deprecated. Use 'remote_exe'")
+            # construct the call cmd
+            if len(config.PyFiSync_path) == 0:
+                cmd += 'PyFiSync _api file_list"'
             else:
-                cmd += os.path.join(config.PyFiSync_path,'PyFiSync.py _api file_list"')
-    
+                cmd += config.remote_program + ' '
+                if any(config.PyFiSync_path.endswith('PyFiSync'+ext) for ext in ['','.py']):
+                    cmd += config.PyFiSync_path + ' _api file_list"'
+                else:
+                    cmd += os.path.join(config.PyFiSync_path,'PyFiSync.py _api file_list"')
+        else:
+            cmd += '{} _api file_list"'.format(config.remote_exe)
         
         remote_config = dict()
         
@@ -204,16 +206,19 @@ class ssh_rsync(remote_interface_base):
             sm=self.sm,**config.__dict__)
 
         # construct the call cmd
-        if len(config.PyFiSync_path) == 0:
-            cmd += 'PyFiSync _api apply_queue'
-        else:
-            cmd += config.remote_program + ' '
-            if any(config.PyFiSync_path.endswith('PyFiSync'+ext) for ext in ['','.py']):
-                cmd += config.PyFiSync_path + ' _api apply_queue'
+        if hasattr(config,'PyFiSync_path') and hasattr(config,'remote_program'):
+            log.add("DEPRECATION WARNING: 'PyFiSync_path' and 'remote_program' are deprecated. Use 'remote_exe'")
+            if len(config.PyFiSync_path) == 0:
+                cmd += 'PyFiSync _api apply_queue'
             else:
-                cmd += os.path.join(config.PyFiSync_path,'PyFiSync.py _api apply_queue')
-    
-    
+                cmd += config.remote_program + ' '
+                if any(config.PyFiSync_path.endswith('PyFiSync'+ext) for ext in ['','.py']):
+                    cmd += config.PyFiSync_path + ' _api apply_queue'
+                else:
+                    cmd += os.path.join(config.PyFiSync_path,'PyFiSync.py _api apply_queue')
+        else:
+            cmd += '{} _api apply_queue'.format(config.remote_exe)
+        
         if force:
             cmd += ' --force '
 

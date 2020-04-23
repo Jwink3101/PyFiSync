@@ -2,6 +2,17 @@
 
 This is for *major* changes only; especially ones that break or change functionality
 
+## 20200423.0:
+
+The remote specification of the PyFiSync path has been changed to just specifying `remote_exe`. The prior settings `remote_program` and `PyFiSync_path` will still work but will throw a deprecation warning and may break in future releases.
+
+No warnings will be issued but this is likely the last (or nearly last) release that will support Python 2.
+
+Other minor changes.
+
+* Added stats on transfers and file lists
+* Fixed a bug and added test wherein the config file was not executed from the sync directory as expected.
+
 ## 20191119:
 
 Minor bug fix for ssh+rsync backend where the default excludes (e.g. `.git`) were being applied even when they were explicitly *not* intended to be excluded.

@@ -26,15 +26,14 @@ ssh_port = 22
 # This works in practice but has not been as thouroughly tested.
 persistant = True
 
-# These are useful if you're not installing the program on both machines
-# and just want to point to the python file itself
-# Leave empty if installed otherwise specify the path to the REMOTE PyFiSync
-# and remote program 
-PyFiSync_path = ''      # /path/to/PyFiSync.py if not installed
-remote_program = ''     # python, python3, etc
+# Specify the remote executable. If it is installed, it is just 'PyFiSync'. 
+# Otherwise it may be something like '/path/to/python /path/to/PyFiSync.py'.
+# Make sure the paths work via SSH. See the FAQs for details
+remote_exe = 'PyFiSync'
 # </rsync>
 
 # <rclone>
+
 # These settings are specific to rclone. 
 remote = 'rclone'
 
@@ -48,8 +47,21 @@ pathB = 'myremote:bucket'
 rclone_executable = 'rclone'
 
 # Specify an rclone config password if one is set. Or specify `pwprompt()` to
-# have you promoted to enter one. This should not be used in a script. Specify
-# False to have it ignored. Be carefule specifying the password directly in text
+# have you promoted to enter one on each run. Specify False to ignore.
+#
+# Alternatively, you can do something like the following: Write the password in
+# something like ".PyFiSync/PW.txt" where, by putting it in the .PyFiSync 
+# directory, it will not be synchronized. Then:
+#
+#     with open(".PyFiSync/PW.txt",'rt') as file:
+#         rclone_pw = file.read().strip() 
+#
+# WARNINGS:
+#   - Specifying the password in plain text may not be secure if this config file
+#     is compromised
+#   - The password is passed to rclone via environment variables. Alternatively,
+#     use --password-command manually with flags. An improved method may be
+#     implemented in the future.
 rclone_pw = False
 
 # Specify some flags to include in all rclone calls. Must be specified as a 
@@ -66,7 +78,9 @@ rclone_pw = False
 #   useful if you want to keep the config file somewhere else (including with 
 #   the files synced). Rclone is always evaluated in the root sync directory
 #   so the path can be relative to that.
-rclone_flags = ['--transfers', '32','--fast-list','--checkers','10']
+rclone_flags = ['--transfers', '15',
+                '--fast-list',
+                '--checkers', '10']
 
 # Some remotes (e.g. Backblaze B2) do not support any server-side move/copy
 # opperations. As such, moving files is very inefficient as they must

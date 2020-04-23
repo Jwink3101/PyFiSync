@@ -220,7 +220,7 @@ Notes:
 
 Set up then add some files
 
-    $ pfs reset --force
+    $ PyFiSync reset --force
 
 ...add some files and test
 
@@ -277,10 +277,9 @@ Notes:
 
 Set up then add some files
 
-    $ pfs reset --force
+    $ PyFiSync reset --force
 
 Now you should be good to go! You will get some "untracked file" warnings on the first sync for files that are not on the same side.
-
 
 ## S3 Notes
 

@@ -74,17 +74,21 @@ This are *no dependancies!* (for rsync). Everything is included in the package (
 
 To install:
 
-    $ pip install git+https://github.com/Jwink3101/PyFiSync
+    $ python -m pip install git+https://github.com/Jwink3101/PyFiSync
     
 Or download the zip file and run
 
     $ python setup.py install
 
-Note: On the remote machine, the path to PyFiSync must be found via SSH. For example, if your python is from (Ana/Mini)conda, then it places the paths into the `.bash_profile`. Move the paths to `.bashrc` so that PyFiSync can be found. Alternatively, specify `PyFiSync_path` and `remote_program` in the config. Or, you can explicitly set the path to the files
+If using the rclone remote (see setup below), install it on the remote machine too.
+
+Note: On the remote machine, the path to PyFiSync must be found via SSH. For example, if your python is from (Ana/Mini)conda, then it places the paths into the `.bash_profile`. Move the paths to `.bashrc` so that PyFiSync can be found. 
+
+Alternatively, specify `remote_exe`.
 
 ## Setup
 
-See [rsync](rsync.md) for setup of the default mode.
+See [rsync](rsync.md) for setup of the default mode. PyFiSync must be installed on both machines (or the Python scripts must be there and configured)
 
 Setting up rclone is a bit more involved since you must set up an appropriate rclone remote. See [rclone readme](rclone.md) for general details and [rclone\_b2](rclone_b2.md) for a detailed walk through of setting up with B2 (and S3 with small noted changes). 
 

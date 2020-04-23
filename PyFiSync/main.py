@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20200221.0'
+__version__ = '20200423.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -138,7 +138,12 @@ def reset_tracking(backup=True,empty='reset',set_time=False):
         data = json.dumps(filesB,ensure_ascii=False)
         F.write(utils.to_unicode(data))
         txt = 'saved ' + filesB_old
-
+    
+    log.space = 0
+    log.add('')
+    log.add('  Local:  {}'.format(utils.file_summary(filesA)))
+    log.add('  Remote: {}'.format(utils.file_summary(filesB)))
+    
     if set_time:
         timepath = os.path.join(config.pathA,'.PyFiSync','last_run.time')
         with open(timepath,'w') as F:
@@ -237,6 +242,10 @@ def main(mode):
                                  use_hash_db=config.use_hash_db)
         filesB = _tmp.files()
 
+    log.add('')
+    log.add('  Local:  {}'.format(utils.file_summary(filesA)))
+    log.add('  Remote: {}'.format(utils.file_summary(filesB)))
+    
     ## Get file lists
     log.line()
     log.add('Loading older file list (and applying exclusions if they have changed)')
@@ -319,8 +328,15 @@ def main(mode):
     log.space = 0;log.prepend = ''
     log.line()
     log.add('Final Transfer')
-    log.space=2
     
+    # Show the numbers to be transfered
+    filesA2B = [filesA.query_one(path=f) for f in tqA2B]
+    filesB2A = [filesB.query_one(path=f) for f in tqB2A]
+    log.add('  Queued A >>> B: {}'.format(utils.file_summary(filesA2B)))
+    log.add('  Queued A <<< B: {}'.format(utils.file_summary(filesB2A)))    
+    log.add('')
+    
+    log.space=2
     if config._DRYRUN:
         dry_run.transfer(tqA2B,tqB2A,log,filesA,filesB)
     else:
@@ -637,7 +653,6 @@ def determine_file_transfers(filesA,filesB):
         # If they are both modified before the last run, then something strange
         # happened and we want to proceed as a conflict
 
-
         ################### conflict
         
         def get_newpath(path,AB):
@@ -727,7 +742,6 @@ def apply_action_queue(dirpath,queue):
     log.add('Applying queues on: {:s}'.format(dirpath))
     log.space = 4
     
-
     backup_path = os.path.join(dirpath,'.PyFiSync','backups',
         datetime.datetime.now().strftime('%Y-%m-%d_%H%M%S'))
 
@@ -836,8 +850,6 @@ def run_bash(pre):
     log.add('STDERR:')
     log.add('\n'.join('   > {}'.format(c.rstrip()) for c in err.split('\n')))
     
-
-
 def _unix_time(val):
     return datetime.datetime.fromtimestamp(float(val)).strftime('%Y-%m-%d %H:%M:%S')
 
