@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20200423.0'
+__version__ = '20200814.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -228,7 +228,7 @@ def main(mode):
                 
         filesB = remote_interface.file_list(attribB,empty='store')        
         filesA = loc_walk_thread.join()
-    
+
         if filesB is None:
             sys.stderr.write('Error on remote call. See logged warnings\n')
             sys.exit(2)

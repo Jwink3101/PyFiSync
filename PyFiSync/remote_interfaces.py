@@ -164,7 +164,7 @@ class ssh_rsync(remote_interface_base):
         proc = subprocess.Popen(cmd,stdin=subprocess.PIPE, 
                                     stdout=outfile,
                                     stderr=subprocess.PIPE, 
-                                    bufsize=1,shell=False)        
+                                    shell=False)        
         _,err = proc.communicate(json_config)
         
         if len(err)>0:
@@ -239,7 +239,7 @@ class ssh_rsync(remote_interface_base):
         proc = subprocess.Popen(cmd,stdin=subprocess.PIPE,
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE, 
-                                    bufsize=1,shell=False)
+                                    shell=False)
         
         proc.stdin.write(sentinel + queue_bytes)
         proc.stdin.close()
@@ -312,7 +312,7 @@ class ssh_rsync(remote_interface_base):
             log.space=4
 
 
-            proc = subprocess.Popen(cmdA2B, stdout=subprocess.PIPE, bufsize=1,shell=True)
+            proc = subprocess.Popen(cmdA2B, stdout=subprocess.PIPE,shell=True)
             with proc.stdout:
                 for line in iter(proc.stdout.readline, b''):
                     line = self._proc_final_log(line)
@@ -342,7 +342,7 @@ class ssh_rsync(remote_interface_base):
             log.add('  cmd = ' + cmdB2A)
             log.space=4
 
-            proc = subprocess.Popen(cmdB2A, stdout=subprocess.PIPE, bufsize=1,shell=True)
+            proc = subprocess.Popen(cmdB2A, stdout=subprocess.PIPE,shell=True)
             with proc.stdout:
                 for line in iter(proc.stdout.readline, b''):
                     line = self._proc_final_log(line)
