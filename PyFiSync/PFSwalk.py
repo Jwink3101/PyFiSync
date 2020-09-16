@@ -32,8 +32,7 @@ from itertools import repeat
 from functools import partial
 
 from . import utils
-from . import ldtable
-ldtable = ldtable.ldtable
+from .dicttable import DictTable
 
 def fnmatch_mult(name,patterns):
     """
@@ -351,7 +350,7 @@ class file_list:
             with open(hash_path,'rt',encoding='utf8') as F:
                 hash_db = json.loads(F.read())
         
-        self.hash_db = ldtable(hash_db,attributes=['mtime','path','size'])
+        self.hash_db = DictTable(hash_db,fixed_attributes=['mtime','path','size'])
          
     def save_hash_db(self,files):
         if not self.use_hash_db:
@@ -377,6 +376,31 @@ def _relpath(*A,**K):
     return res      
 
 
+def exclude_if_present(filesA,filesB,exclude_filename):
+    """
+    Apply a filter to filesA and filesB to exclude any files below
+    exclude_if_present files
+    
+    filesA and filesB are assumed to be DictTables and this happens in place
+    """
+    exclude_dirs = set()
+    for file in list(filesA) + list(filesB):
+        path = file['path']
+        dirname,filename = os.path.split(path)
+        if filename == exclude_filename:
+            exclude_dirs.add(dirname)
+    
+    for exclude_dir in exclude_dirs:
+        try:
+            filesA.remove(filesA.Q.filter(lambda a:a['path'].startswith(exclude_dir)))
+        except ValueError:
+            pass
+        try:
+            filesB.remove(filesB.Q.filter(lambda a:a['path'].startswith(exclude_dir)))
+        except:
+            pass
+    
+    
 
 def scandir(path,force_listdir=False):
     if _scandir is not None and not force_listdir:

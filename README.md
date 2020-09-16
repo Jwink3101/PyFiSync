@@ -12,6 +12,8 @@ Python (+ rsync or rclone) based intelligent file sync with automatic backups an
     * Uses rsync for actual file transfers to save bandwidth and make use of existing file data
 * [rclone][rclone] mode: (beta!)
     * Can connect to a wide variety of cloud-services and offers encryption
+    * Note that rclone is still supported and works but **it is better to use** [syncrclone](https://github.com/Jwink3101/syncrclone) instead.
+        * rclone support may be deprecated in the future!
 * Extensively tested for a **huge** variety of edge-cases
 
 ## Details
@@ -70,7 +72,7 @@ PyFiSync syncs files and therefore will *not* sync empty directories from one ma
 
 ## Install
 
-This are *no dependancies!* (for rsync). Everything is included in the package (though `ldtable` is also separately developed [here](https://github.com/Jwink3101/ldtable))
+This are *no dependancies!* (for rsync). Everything is included in the package (though `ldtable` is also separately developed [here](https://github.com/Jwink3101/ldtable)) (now `DictTable`)
 
 To install:
 
@@ -121,6 +123,13 @@ Examples:
 * Exclude a specific folder: `/path/to/folder/` (where `/` is the start of the sync directory
 * Exclude all files that start with `file`: `file*`
 * Exclude all files that start with `file` in a specific directory: `/path/to/file*`
+
+
+#### Exclude if Present
+
+PyFiSync allows for exclusion of a directory due to the presence of a specified file name (the contents of the file do not matter, only the presence of it).
+
+Unlike regular exclusions which halt traversing deeper into an excluded directory tree, `exclude_if_present` is a filter applied after the fact. This approach is safer as adding an exclusion file on one side will not cause a delete to be incorrectly propagated. It does come at a small performance penalty as the excluded directory is is initially traversed
 
 ### Symlinks
 

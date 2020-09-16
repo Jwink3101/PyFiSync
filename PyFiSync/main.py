@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20200814.0'
+__version__ = '20200916.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -33,7 +33,7 @@ if self_path not in sys.path:
 
 from . import utils
 from . import PFSwalk
-from .ldtable import ldtable
+from .dicttable import DictTable
 from . import dry_run
 from . import remote_interfaces
 
@@ -139,6 +139,14 @@ def reset_tracking(backup=True,empty='reset',set_time=False):
         F.write(utils.to_unicode(data))
         txt = 'saved ' + filesB_old
     
+    # This is really *not* needed and slows things down but I will keep it
+    # for now
+    
+    if config.exclude_if_present:
+        filesA = DictTable(filesA)
+        filesB = DictTable(filesB)
+        PFSwalk.exclude_if_present(filesA,filesB,config.exclude_if_present) # in place
+    
     log.space = 0
     log.add('')
     log.add('  Local:  {}'.format(utils.file_summary(filesA)))
@@ -242,10 +250,6 @@ def main(mode):
                                  use_hash_db=config.use_hash_db)
         filesB = _tmp.files()
 
-    log.add('')
-    log.add('  Local:  {}'.format(utils.file_summary(filesA)))
-    log.add('  Remote: {}'.format(utils.file_summary(filesB)))
-    
     ## Get file lists
     log.line()
     log.add('Loading older file list (and applying exclusions if they have changed)')
@@ -264,11 +268,18 @@ def main(mode):
     
     log.line()
     log.add('Creating DB objects')
-    filesA     = ldtable(filesA    )
-    filesB     = ldtable(filesB    )
-    filesA_old = ldtable(filesA_old)
-    filesB_old = ldtable(filesB_old)
-
+    filesA     = DictTable(filesA    )
+    filesB     = DictTable(filesB    )
+    filesA_old = DictTable(filesA_old)
+    filesB_old = DictTable(filesB_old)
+    
+    if config.exclude_if_present:
+        PFSwalk.exclude_if_present(filesA,filesB,config.exclude_if_present) # in place
+    
+    log.add('')
+    log.add('  Local:  {}'.format(utils.file_summary(filesA)))
+    log.add('  Remote: {}'.format(utils.file_summary(filesB)))
+    
     ## Compare to old to determine new, modified, deleted
     log.line()
     log.add('Using old file lists to determine moves and deletions\n')
@@ -356,14 +367,21 @@ def main(mode):
 
 def file_track(files_old,files_new,prev_attributes,move_attributes):
 
-    # Add certain fields to the DBs
-    files_new.add_attribute('newmod',False)
-    files_new.add_attribute('new',False)
-    files_new.add_attribute('untouched',False)
-    files_new.add_attribute('moved',False)
-    files_new.add_attribute('prev_path',None)
-
-    files_old.add_attribute('deleted',True)
+    # Add certain fields to the DBs. Do it this way so that they get set with defaults
+    for file in files_new:
+        for attrib,val in zip(['newmod','new','untouched','moved','prev_path'],
+                              [False,   False,False      ,False  ,None,]):
+            file[attrib] = val
+    for file in files_old:
+        file['deleted'] = True
+    
+    for attrib in ['newmod','new','untouched','moved','prev_path']:
+        files_new.add_fixed_attribute(attrib)
+    
+    files_old.add_fixed_attribute('deleted')
+    
+    files_new.reindex()
+    files_old.reindex()    
 
     # Main loop
     for file in files_new.items():
@@ -611,12 +629,12 @@ def determine_file_transfers(filesA,filesB):
         # Check if the other path doesn't exist. Means file was new or
         # deleted on one and modified on the other. Transfer to missing side
         if fileA is None:
-            if not fileB['new']: # Somehow missing on A. Maybe deleted?
+            if not fileB.get('new',False): # Somehow missing on A. Maybe deleted?
                 log.add(txt2.format(AB='A',BA='B',path=path))
             tqB2A.append(path)
             continue
         if fileB is None:
-            if not fileA['new']: # ...
+            if not fileA.get('new',False): # ...
                 log.add(txt2.format(AB='B',BA='A',path=path))
             tqA2B.append(path)
             continue

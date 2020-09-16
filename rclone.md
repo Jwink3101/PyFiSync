@@ -1,5 +1,13 @@
 # Rclone
 
+---
+**DEPRECATION**
+rclone support exists and works but is not optimal. PyFiSync was designed around rsync and is therefore less efficient with rclone.
+
+It is *much* better to use [syncrclone](https://github.com/Jwink3101/syncrclone) instead
+
+---
+
 (beta)
 
 [rclone](https://rclone.org/) is now a supported backend with PyFiSync but there are some important details.

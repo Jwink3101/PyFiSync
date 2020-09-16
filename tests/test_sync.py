@@ -24,13 +24,13 @@ import subprocess
 import pytest
 
 ## Specify whether to test remotely or locally...or both
-# remotes = [False]   # Just test locally
-# remotes = ['python2','python3']
+#remotes = [False]   # Just test locally
 remotes = [False,'python2','python3']
+# remotes = ['python3']
 # remotes = ['python2']
 
 rclone = ['rclone'] 
-#rclone = []
+# rclone = []
 
 
 @pytest.mark.parametrize("remote", remotes+rclone)
@@ -1057,6 +1057,57 @@ def test_exclusions(remote): # Old test 16
     assert len(comp) == 2
     assert ('disagree', 'skip_folder/file2') in comp
     assert ('disagree', 'skip_me') in comp
+    
+@pytest.mark.parametrize("remote", remotes + rclone)    
+def test_exclude_if_present(remote): 
+    """ test exclusion """
+    testpath = os.path.join(os.path.abspath(os.path.split(__file__)[0]),
+            'test_dirs','test_exclude_if_present')
+    try:
+        shutil.rmtree(testpath)
+    except:
+        pass
+    os.makedirs(testpath)
+    testutil = testutils.Testutils(testpath=testpath)
+
+    # Init
+    testutil.write('A/file1',text='1')
+    testutil.write('A/subX/file2',text='2')
+    testutil.write('A/subY/file3',text='3')
+    
+    testutil.write('A/subX/SKIP',text='')
+
+
+    # Randomize Mod times
+    testutil.modtime_all()
+
+    # Start it
+    config = testutil.get_config(remote=remote)
+    config.exclude_if_present = 'SKIP'
+    testutil.init(config) # We should already see the exclusion happening
+    
+    
+    # test these already
+    comp = testutil.compare_tree()
+    assert [('missing_inB', 'subX/SKIP'), ('missing_inB', 'subX/file2')] == comp
+    
+    # Add a skip on B. Also add a file on A that shoudl NOT go to B
+    testutil.write('B/subY/SKIP',text='')
+    testutil.write('A/subY/new',text='I am new')
+    testutil.run(config)
+    
+    comp = testutil.compare_tree()
+    assert [('missing_inB', 'subX/SKIP'), 
+           ('missing_inB', 'subX/file2'), 
+           ('missing_inA', 'subY/SKIP'), 
+           ('missing_inB', 'subY/new')] == comp
+    
+    # Just to see what happens:
+    config.exclude_if_present = ''
+    testutil.run(config)
+    comp = testutil.compare_tree()
+    assert comp == []
+
 
 # Rclone doesn't do inodes
 @pytest.mark.parametrize("remote", remotes)

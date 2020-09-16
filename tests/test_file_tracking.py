@@ -11,8 +11,7 @@ testutils.add_module()
 
 from PyFiSync import utils,PFSwalk
 from PyFiSync import main as PyFiSync # Need to fix
-import ldtable
-ldtable = ldtable.ldtable
+DictTable = main.DictTable
 
 import os
 import sys
@@ -52,13 +51,13 @@ def test_untouched():
     PyFiSync.config = config
 
     # old list
-    files_old = ldtable(_file_list(testpath,config))
+    files_old = DictTable(_file_list(testpath,config))
     
     # Apply actions
     
     
     # new list and track
-    files_new = ldtable(_file_list(testpath,config))
+    files_new = DictTable(_file_list(testpath,config))
     PyFiSync.file_track(files_old,files_new,prev_attr,move_attr)
     
     # Check
@@ -88,13 +87,13 @@ def test_move(): # This used to be test 01
     PyFiSync.config = config
 
     # old list
-    files_old = ldtable(_file_list(testpath,config))
+    files_old = DictTable(_file_list(testpath,config))
     
     # Apply actions
     testutil.move('file1.txt','file2.txt')
     
     # new list and track
-    files_new = ldtable(_file_list(testpath,config))
+    files_new = DictTable(_file_list(testpath,config))
     PyFiSync.file_track(files_old,files_new,prev_attr,move_attr)
     
     # Check
@@ -125,14 +124,14 @@ def test_move_mod(mode):
     PyFiSync.config = config
 
     # old list
-    files_old = ldtable(_file_list(testpath,config))
+    files_old = DictTable(_file_list(testpath,config))
     
     # Apply actions
     testutil.move('file1.txt','file2.txt')
     testutil.write('file2.txt',text='mod',mode='a')
     
     # new list and track
-    files_new = ldtable(_file_list(testpath,config))
+    files_new = DictTable(_file_list(testpath,config))
     PyFiSync.file_track(files_old,files_new,prev_attr,move_attr)
     
     # Check
@@ -172,7 +171,7 @@ def test_no_moves():
     PyFiSync.config = config
 
     # old list
-    files_old = ldtable(_file_list(testpath,config))
+    files_old = DictTable(_file_list(testpath,config))
     
     # Apply actions
     testutil.move('file2.txt','file22.txt')
@@ -183,7 +182,7 @@ def test_no_moves():
     
     
     # new list and track
-    files_new = ldtable(_file_list(testpath,config))
+    files_new = DictTable(_file_list(testpath,config))
     PyFiSync.file_track(files_old,files_new,prev_attr,move_attr)
     
     files_old.alwaysReturnList = True
@@ -193,7 +192,7 @@ def test_no_moves():
     
     # Even though 22 and 33 were moves they should show as new
     # File5 should also be new (since it really is)
-    t1db = ldtable( files_new(new=True))
+    t1db = DictTable( files_new(new=True))
     assert len(t1db) == 3
     assert {'path':'file22.txt'} in t1db
     assert {'path':'file33.txt'} in t1db

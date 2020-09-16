@@ -2,6 +2,17 @@
 
 This is for *major* changes only; especially ones that break or change functionality
 
+## 20200916.0
+
+* Add `exclude_if_present` option to exclude certain directories based on the existence of a file. This is implemented as a post-listing filter so the directory is still transversed but then later filters. While less efficient, it is both simpler to code and allows for excludes to work on both sides making it *much* safer
+* Updates `ldtable` to `DictTable` (aa019ec800)
+* Adds note that rclone is still supported but users should migrate to [syncrclone](https://github.com/Jwink3101/syncrclone) as it is better for rclone remotes
+* *WARNING*: This is likely the last or nearly last version to support python2
+
+## 20200814.0
+
+* Fixed buffsize warnings with python 3.8
+
 ## 20200423.0:
 
 The remote specification of the PyFiSync path has been changed to just specifying `remote_exe`. The prior settings `remote_program` and `PyFiSync_path` will still work but will throw a deprecation warning and may break in future releases.

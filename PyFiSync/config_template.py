@@ -204,6 +204,11 @@ use_hash_db = True
 # excludes = ['.DS_Store','.git/','Thumbs.db'] # Suggested
 excludes = []
 
+# This sets a specified filename (such as '.PyFiSync_skip') wherein if PyFiSync
+# sees this file in a directory, it will exclude it. If the file is found on
+# either side, it is applied to *both* sides.
+exclude_if_present = ''
+
 # The following can be used to perform certain tasks pre and post sync.
 # Called the root of the syn direcotory (i.e. they start with 
 #       $ cd $PyFiSync_root
