@@ -2,6 +2,11 @@
 
 This is for *major* changes only; especially ones that break or change functionality
 
+## 20210626.0:
+
+- Changes the conflict "tag" names from, for example, `file.ext.nameA` to `file.nameA.ext`.
+    - Tests updated to reflect that change
+
 ## 20200916.0
 
 * Add `exclude_if_present` option to exclude certain directories based on the existence of a file. This is implemented as a post-listing filter so the directory is still transversed but then later filters. While less efficient, it is both simpler to code and allows for excludes to work on both sides making it *much* safer

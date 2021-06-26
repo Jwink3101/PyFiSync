@@ -3,7 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 from io import open
 
-__version__ = '20200916.0'
+__version__ = '20210626.0'
 __author__ = 'Justin Winokur'
 __license__ = 'MIT'
 
@@ -684,12 +684,14 @@ def determine_file_transfers(filesA,filesB):
             else:
                 name = config.nameB
                 files = filesB
-            newpath = path + '.' + name
+            
+            root,ext = os.path.splitext(path)
+            newpath = '{}.{}{}'.format(root,name,ext)
             newpath0 = newpath
             ii = 0
             while files.query_one(path=newpath) is not None:
                 ii += 1
-                newpath = newpath0 + '.{}'.format(ii)
+                newpath = newpath = '{}.{}.{}{}'.format(root,name,ii,ext)
                 
             if ii > 0:
                 log.add(txt3.format(AB=AB,path=path,ii=ii))

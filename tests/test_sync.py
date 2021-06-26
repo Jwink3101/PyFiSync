@@ -24,7 +24,7 @@ import subprocess
 import pytest
 
 ## Specify whether to test remotely or locally...or both
-#remotes = [False]   # Just test locally
+# remotes = [False]   # Just test locally
 remotes = [False,'python2','python3']
 # remotes = ['python3']
 # remotes = ['python2']
@@ -112,7 +112,7 @@ def test_mod_files(remote): # old test 02
 mod_conflicts = ['A','B','newer','both','newer_tag']
 @pytest.mark.parametrize("remote,mod_conflict", list(itertools.product(remotes + rclone,mod_conflicts)))
 def test_simple_conflict(remote,mod_conflict): 
-    """ Same Files are modified both in A and B """
+    """ Same Files are modified both in A and B. Also test renaming"""
     
     if mod_conflict is None:
         for mc in mod_conflicts:
@@ -130,7 +130,7 @@ def test_simple_conflict(remote,mod_conflict):
 
 
     # Init
-    testutil.write('A/file1',text='test')
+    testutil.write('A/file1.ext',text='test')
 
     # Randomize Mod times
     testutil.modtime_all()
@@ -141,26 +141,25 @@ def test_simple_conflict(remote,mod_conflict):
     testutil.init(config)
 
     # Apply actions
-    testutil.write('A/file1',text='A',mode='a',time_adj=+100) # append it
-    testutil.write('B/file1',text='B',mode='a',time_adj=+500) # append it
+    testutil.write('A/file1.ext',text='A',mode='a',time_adj=+100) # append it
+    testutil.write('B/file1.ext',text='B',mode='a',time_adj=+500) # append it
 
     # Sync
     testutil.run(config)
     
     assert testutil.compare_tree() == []
     files = set(os.path.basename(p) for p in testutil.tree(os.path.join(testpath,'A')))
-    
     if mod_conflict == 'A':
-        assert files == set(['file1'])
-        assert testutil.read('A/file1') == 'test\nA'
+        assert files == set(['file1.ext'])
+        assert testutil.read('A/file1.ext') == 'test\nA'
     if mod_conflict in ['B' or 'newer'] :
-        assert files == set(['file1'])
-        assert testutil.read('A/file1') == 'test\nB'
+        assert files == set(['file1.ext'])
+        assert testutil.read('A/file1.ext') == 'test\nB'
     if mod_conflict == 'newer_tag':
-        assert files == set(['file1','file1.machineA'])
-        assert testutil.read('A/file1') == 'test\nB'
-    if mod_conflict == 'both':    
-        assert files == set([u'file1.machineA', u'file1.machineB'])
+        assert files == set(['file1.ext','file1.machineA.ext'])
+        assert testutil.read('A/file1.ext') == 'test\nB'
+    if mod_conflict == 'both': 
+        assert files == set([u'file1.machineA.ext', u'file1.machineB.ext'])
 
 mod_conflicts = ['both','newer_tag']
 @pytest.mark.parametrize("remote,mod_conflict", list(itertools.product(remotes + rclone,mod_conflicts)))
@@ -181,8 +180,8 @@ def test_multiple_conflict_tags(remote,mod_conflict):
 
 
     # Init
-    testutil.write('A/file1',text='ONE')
-    testutil.write('A/file2',text='TWO')
+    testutil.write('A/file1.ext',text='ONE')
+    testutil.write('A/file2.ext',text='TWO')
 
     # Randomize Mod times
     testutil.modtime_all()
@@ -193,21 +192,21 @@ def test_multiple_conflict_tags(remote,mod_conflict):
     testutil.init(config)
 
     # Apply actions
-    testutil.write('A/file1',text='A1',mode='a',time_adj=5)
-    testutil.write('B/file1',text='B1',mode='a',time_adj=0) 
+    testutil.write('A/file1.ext',text='A1',mode='a',time_adj=5)
+    testutil.write('B/file1.ext',text='B1',mode='a',time_adj=0) 
     
-    testutil.write('A/file2',text='A1',mode='a',time_adj=0)
-    testutil.write('B/file2',text='B1',mode='a',time_adj=5) 
+    testutil.write('A/file2.ext',text='A1',mode='a',time_adj=0)
+    testutil.write('B/file2.ext',text='B1',mode='a',time_adj=5) 
     
     # Sync
     testutil.run(config)
     
     # Do the mods again
-    testutil.write('A/file1',text='A2',mode='a',time_adj=5)
-    testutil.write('B/file1',text='B2',mode='a',time_adj=0) 
+    testutil.write('A/file1.ext',text='A2',mode='a',time_adj=5)
+    testutil.write('B/file1.ext',text='B2',mode='a',time_adj=0) 
     
-    testutil.write('A/file2',text='A2',mode='a',time_adj=0)
-    testutil.write('B/file2',text='B2',mode='a',time_adj=5) 
+    testutil.write('A/file2.ext',text='A2',mode='a',time_adj=0)
+    testutil.write('B/file2.ext',text='B2',mode='a',time_adj=5) 
     
     testutil.run(config)
 
@@ -216,25 +215,25 @@ def test_multiple_conflict_tags(remote,mod_conflict):
     
     if mod_conflict == 'newer_tag':
         testdict = {
-            'file1': 'ONE\nA1\nA2',        # Updated on A both times
-            'file1.machineB': 'ONE\nB1',   # Updated on B once
-            'file1.machineB.1': 'ONE\nA1\nB2', # Updated on A then B
+            'file1.ext': 'ONE\nA1\nA2',        # Updated on A both times
+            'file1.machineB.ext': 'ONE\nB1',   # Updated on B once
+            'file1.machineB.1.ext': 'ONE\nA1\nB2', # Updated on A then B
     
-            'file2': 'TWO\nB1\nB2',        # Updated on B both times
-            'file2.machineA': 'TWO\nA1',   # Updated on A once
-            'file2.machineA.1': 'TWO\nB1\nA2', # Updated on B then A
+            'file2.ext': 'TWO\nB1\nB2',        # Updated on B both times
+            'file2.machineA.ext': 'TWO\nA1',   # Updated on A once
+            'file2.machineA.1.ext': 'TWO\nB1\nA2', # Updated on B then A
         }  
         
     elif mod_conflict == 'both':
         testdict = {
-            'file1.machineA': 'ONE\nA1', # The appended 2's make a new file
-            'file1.machineA.1': 'A2',
-            'file1.machineB': 'ONE\nB1',
-            'file1.machineB.1': 'B2',
-            'file2.machineA': 'TWO\nA1',
-            'file2.machineA.1': 'A2',
-            'file2.machineB': 'TWO\nB1',
-            'file2.machineB.1': 'B2',
+            'file1.machineA.ext': 'ONE\nA1', # The appended 2's make a new file
+            'file1.machineA.1.ext': 'A2',
+            'file1.machineB.ext': 'ONE\nB1',
+            'file1.machineB.1.ext': 'B2',
+            'file2.machineA.ext': 'TWO\nA1',
+            'file2.machineA.1.ext': 'A2',
+            'file2.machineB.ext': 'TWO\nB1',
+            'file2.machineB.1.ext': 'B2',
         }
     else: # No need to test 'A','B','newer' since they do not tag anything
         assert False # Shouldn't be testing this
