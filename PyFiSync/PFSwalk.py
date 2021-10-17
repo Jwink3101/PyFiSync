@@ -13,6 +13,7 @@ import os
 import fnmatch
 import subprocess
 import json
+import time
 
 try:
     from os import scandir as _scandir

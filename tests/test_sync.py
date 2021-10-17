@@ -24,13 +24,13 @@ import subprocess
 import pytest
 
 ## Specify whether to test remotely or locally...or both
-# remotes = [False]   # Just test locally
-remotes = [False,'python2','python3']
+remotes = [False]   # Just test locally
+#remotes = [False,'python2','python3']
 # remotes = ['python3']
 # remotes = ['python2']
 
-rclone = ['rclone'] 
-# rclone = []
+#rclone = ['rclone'] 
+rclone = []
 
 
 @pytest.mark.parametrize("remote", remotes+rclone)
